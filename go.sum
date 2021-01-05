@@ -1,0 +1,10 @@
+github.com/YouROK/go-mpv v0.0.0-20160721123233-ecdfd901e332 h1:nrVDN4BzWLtR0O8AzCLw0Fxxhf51Ez6xI69KH5nccNE=
+github.com/YouROK/go-mpv v0.0.0-20160721123233-ecdfd901e332/go.mod h1:QS4kWL5x2B4XoUw0YwlLx5lfUq3r4JcdrE8QOH6uubk=
+github.com/antchfx/jsonquery v1.1.4 h1:+OlFO3QS9wjU0MKx9MgHm5f6o6hdd4e9mUTp0wTjxlM=
+github.com/antchfx/jsonquery v1.1.4/go.mod h1:cHs8r6Bymd8j6HI6Ej1IJbjahKvLBcIEh54dfmo+E9A=
+github.com/antchfx/xpath v1.1.7 h1:RgnAdTaRzF4bBiTqdDA7ZQ7IU8ivc72KSTf3/XCA/ic=
+github.com/antchfx/xpath v1.1.7/go.mod h1:Yee4kTMuNiPYJ7nSNorELQMr1J33uOpXDMByNYhvtNk=
+github.com/frizinak/binary v0.1.0 h1:JKqTBgHFzbRCYf7jjvwyKp95xeqt9RSi0l0rdxvSdu0=
+github.com/frizinak/binary v0.1.0/go.mod h1:XLSAtIYW86xHUC90aSQBD0h6SSkh/p5JdKXUB+tXsEE=
+github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e h1:1r7pUrabqp18hOBcwBwiTsbnFeTZHV9eER/QT5JVZxY=
+github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e/go.mod h1:cIg4eruTrX1D+g88fzRXU5OdNfaM+9IcxsU14FzY7Hc=
