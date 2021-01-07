@@ -165,3 +165,11 @@ func (m *LibMPV) Position() float64 {
 
 	return _v.(float64) / 100
 }
+
+func (m *LibMPV) Duration() time.Duration {
+	_v, err := m.mpv.GetProperty("duration", mpv.FORMAT_DOUBLE)
+	if err != nil {
+		return 0
+	}
+	return time.Duration(_v.(float64)) * time.Second
+}
