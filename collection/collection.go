@@ -171,7 +171,6 @@ func (c *Collection) Init() error {
 						os.Remove(tmp)
 						return err
 					}
-					c.l.Println("rename", tmp, file)
 					return os.Rename(tmp, file)
 				}
 
