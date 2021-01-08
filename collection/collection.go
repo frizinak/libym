@@ -59,6 +59,10 @@ func New(l *log.Logger, dir string, queue *Queue, concurrentDownloads int, autoS
 
 func (c *Collection) pathDB() string    { return filepath.Join(c.dir, "db") }
 func (c *Collection) pathSongs() string { return filepath.Join(c.dir, "songs") }
+func (c *Collection) globSongs() string {
+	return filepath.Join(c.pathSongs(), "*", "*", "*", "*")
+}
+
 func (c *Collection) pathSong(id IDer) string {
 	sum := sha256.Sum256([]byte(id.ID()))
 	l := base64.RawURLEncoding.EncodeToString(sum[:])
@@ -146,6 +150,11 @@ func (c *Collection) Init() error {
 			c.changed()
 		}
 	}()
+
+	g, _ := filepath.Glob(c.globSongs() + ".tmp")
+	for _, p := range g {
+		os.Remove(p)
+	}
 
 	for i := 0; i < workers; i++ {
 		go func() {
@@ -448,9 +457,31 @@ func (c *Collection) FromYoutubeURL(url, title string) (*YoutubeSong, error) {
 	if err != nil {
 		return nil, err
 	}
-	// if err := y.UpdateTitle(); err != nil {
-	// 	return nil, err
-	// }
 
 	return c.FromYoutube(y), nil
+}
+
+func (c *Collection) UnreferencedDownloads() []string {
+	g, err := filepath.Glob(c.globSongs())
+	if err != nil {
+		panic(err) // filepath.Glob only returns pattern errors
+	}
+
+	gm := make(map[string]struct{}, len(g))
+	for _, p := range g {
+		gm[p] = struct{}{}
+	}
+
+	songs := c.Songs()
+	songs = append(songs, c.q.Slice()...)
+	for _, s := range songs {
+		delete(gm, c.pathSong(s))
+	}
+
+	list := make([]string, 0, len(gm))
+	for i := range gm {
+		list = append(list, i)
+	}
+
+	return list
 }
