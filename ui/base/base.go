@@ -401,8 +401,6 @@ func (u *UI) handle(cmd ui.Command) error {
 	default:
 		return fmt.Errorf("%s is not implemented", cmd.Cmd())
 	}
-
-	return nil
 }
 
 func (u *UI) handleHelp(cmd ui.Command) error {
@@ -410,7 +408,6 @@ func (u *UI) handleHelp(cmd ui.Command) error {
 		s.SetView(ViewHelp, "")
 		return nil
 	})
-	return nil
 }
 
 func (u *UI) handlePlay(cmd ui.Command) error  { u.p.Play(); return nil }
@@ -638,8 +635,6 @@ func (u *UI) handleSearchOwn(cmd ui.Command) error {
 		s.QueryOwn = q
 		return nil
 	})
-
-	return nil
 }
 
 func (u *UI) handleQueueClear(cmd ui.Command) error {

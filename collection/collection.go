@@ -51,9 +51,9 @@ func New(l *log.Logger, dir string, queue *Queue, concurrentDownloads int, autoS
 		concurrent: concurrentDownloads,
 
 		autoSave:  autoSave,
-		needsSave: make(chan struct{}, 0),
+		needsSave: make(chan struct{}),
 
-		unmarshalers: make(map[string]Unmarshaler, 0),
+		unmarshalers: make(map[string]Unmarshaler),
 	}
 }
 
