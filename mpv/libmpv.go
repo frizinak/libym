@@ -1,6 +1,7 @@
 package mpv
 
 import (
+	"io"
 	"log"
 	"sync"
 	"time"
@@ -135,22 +136,31 @@ func (m *LibMPV) IncreaseVolume(n float64) {
 
 func (m *LibMPV) Volume() float64 { return m.state.volume }
 
-func (m *LibMPV) Seek(adjustment time.Duration) {
-	if adjustment == 0 {
-		return
-	}
-	_cur, err := m.mpv.GetProperty("time-pos", mpv.FORMAT_INT64)
-	if err != nil {
-		m.l(err, "time-pos")
+func (m *LibMPV) Seek(adjustment time.Duration, whence int) {
+	if adjustment == 0 && whence != io.SeekStart {
 		return
 	}
 
-	cur := _cur.(int64) + int64(adjustment.Seconds())
-	if cur < 0 {
-		cur = 0
+	if whence != io.SeekStart {
+		_cur, err := m.mpv.GetProperty("time-pos", mpv.FORMAT_INT64)
+		if err != nil {
+			m.l(err, "time-pos")
+			return
+		}
+
+		cur := _cur.(int64) + int64(adjustment/time.Second)
+		if cur < 0 {
+			cur = 0
+		}
+		m.seek(cur)
+		return
 	}
 
-	m.l(m.mpv.SetProperty("time-pos", mpv.FORMAT_INT64, cur), "time-pos2")
+	m.seek(int64(adjustment / time.Second))
+}
+
+func (m *LibMPV) seek(to int64) {
+	m.l(m.mpv.SetProperty("time-pos", mpv.FORMAT_INT64, to), "time-pos2")
 }
 
 func (m *LibMPV) SeekTo(to float64) {

@@ -113,7 +113,7 @@ var texts = map[CommandType]string{
 	CmdPlaylistDelete: "delete a playlist",
 	CmdSongAdd:        "add a song to a playlist",
 	CmdSongDelete:     "delete a song from a playlist",
-	CmdSeek:           "do a relative seek in the current song",
+	CmdSeek:           "seek in the current song (relative: +n | -n, absolute: n, where n is h:m:s, m:s or s)",
 	CmdQueue:          "queue a song from a playlist or a search result",
 	CmdQueueClear:     "clear queue",
 	CmdViewQueue:      "switch to queue view",

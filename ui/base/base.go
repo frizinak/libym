@@ -3,6 +3,7 @@ package base
 import (
 	"errors"
 	"fmt"
+	"io"
 	"sort"
 	"strconv"
 	"strings"
@@ -544,12 +545,49 @@ func (u *UI) handleSongDelete(cmd ui.Command) error {
 }
 
 func (u *UI) handleSeek(cmd ui.Command) error {
-	n, ok := cmd.Args()[0].Int()
-	if !ok {
-		return fmt.Errorf("%s requires arg1 to be an integer", cmd.Cmd())
+	n := cmd.Args()[0].String()
+	generic := fmt.Errorf("%s requires arg1 to be an integer or duration", cmd.Cmd())
+	if len(n) == 0 {
+		return generic
 	}
 
-	u.p.Seek(time.Second * time.Duration(n))
+	sign := 1
+	if n[0] == '-' {
+		sign = -1
+	}
+	relative := n[0] == '+' || n[0] == '-'
+	if relative {
+		n = n[1:]
+	}
+
+	var h, m, s int
+	err := func() error {
+		if _, err := fmt.Sscanf(n, "%d:%d:%d", &h, &m, &s); err == nil {
+			return nil
+		}
+		h, m, s = 0, 0, 0
+		if _, err := fmt.Sscanf(n, "%d:%d", &m, &s); err == nil {
+			return nil
+		}
+		h, m, s = 0, 0, 0
+		if _, err := fmt.Sscanf(n, "%d", &s); err == nil {
+			return nil
+		}
+		return generic
+	}()
+
+	if err != nil {
+		return err
+	}
+
+	s += m*60 + h*3600
+	s *= sign
+	whence := io.SeekStart
+	if relative {
+		whence = io.SeekCurrent
+	}
+
+	u.p.Seek(time.Second*time.Duration(s), whence)
 	return nil
 }
 
