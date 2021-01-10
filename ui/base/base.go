@@ -649,7 +649,7 @@ func (u *UI) handleQueue(cmd ui.Command) error {
 	str := args[0].String()
 	y, err := u.c.FromYoutubeURL(str, "")
 	if err == nil {
-		u.c.QueueNewSong(y)
+		u.c.QueueSong(y)
 		return nil
 	}
 

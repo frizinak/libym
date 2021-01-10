@@ -438,12 +438,8 @@ func (c *Collection) QueueSelection(n string, sel []int) error {
 
 func (c *Collection) QueueSong(s Song) {
 	c.q.Add(s)
-	c.changed()
-}
-
-func (c *Collection) QueueNewSong(s Song) {
-	c.QueueSong(s)
 	c.newSong <- s
+	c.changed()
 }
 
 func (c *Collection) FromYoutube(r *youtube.Result) *YoutubeSong {

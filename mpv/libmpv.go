@@ -167,17 +167,11 @@ func (m *LibMPV) SeekTo(to float64) {
 	m.l(m.mpv.SetProperty("percent-pos", mpv.FORMAT_DOUBLE, to), "percent-pos")
 }
 
-func (m *LibMPV) Position() float64 {
-	_v, err := m.mpv.GetProperty("percent-pos", mpv.FORMAT_DOUBLE)
-	if err != nil {
-		return 0
-	}
+func (m *LibMPV) Position() time.Duration { return m.duration("time-pos") }
+func (m *LibMPV) Duration() time.Duration { return m.duration("duration") }
 
-	return _v.(float64) / 100
-}
-
-func (m *LibMPV) Duration() time.Duration {
-	_v, err := m.mpv.GetProperty("duration", mpv.FORMAT_DOUBLE)
+func (m *LibMPV) duration(prop string) time.Duration {
+	_v, err := m.mpv.GetProperty(prop, mpv.FORMAT_DOUBLE)
 	if err != nil {
 		return 0
 	}

@@ -17,7 +17,7 @@ type Backend interface {
 	Volume() float64
 	Seek(d time.Duration, whence int)
 	SeekTo(float64)
-	Position() float64
+	Position() time.Duration
 	Duration() time.Duration
 	Stop()
 }
@@ -49,7 +49,7 @@ func (p *Player) IncreaseVolume(n float64)         { p.backend.IncreaseVolume(n)
 func (p *Player) Seek(n time.Duration, whence int) { p.backend.Seek(n, whence) }
 func (p *Player) SeekTo(n float64)                 { p.backend.SeekTo(n) }
 func (p *Player) Volume() float64                  { return p.backend.Volume() }
-func (p *Player) Position() float64                { return p.backend.Position() }
+func (p *Player) Position() time.Duration          { return p.backend.Position() }
 func (p *Player) Duration() time.Duration          { return p.backend.Duration() }
 
 func (p *Player) Next() {
