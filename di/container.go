@@ -40,13 +40,15 @@ type Config struct {
 type DI struct {
 	c Config
 
-	store         string
-	mpv           *mpv.LibMPV
-	player        *player.Player
-	queue         *collection.Queue
-	collection    *collection.Collection
-	baseUI        *base.UI
-	commandParser *ui.CommandParser
+	store           string
+	log             *log.Logger
+	mpv             *mpv.LibMPV
+	playerAvailable error
+	player          *player.Player
+	queue           *collection.Queue
+	collection      *collection.Collection
+	baseUI          *base.UI
+	commandParser   *ui.CommandParser
 }
 
 func New(c Config) *DI {
@@ -126,6 +128,17 @@ func (di *DI) CommandParser() *ui.CommandParser {
 	return di.commandParser
 }
 
+func (di *DI) Log() *log.Logger {
+	if di.log == nil {
+		di.log = di.c.Log
+		if di.log == nil {
+			di.log = log.New(os.Stderr, "", 0)
+		}
+	}
+
+	return di.log
+}
+
 func (di *DI) Store() string {
 	if di.store == "" {
 		if di.c.StorePath != "" {
@@ -143,6 +156,11 @@ func (di *DI) Store() string {
 	return di.store
 }
 
+func (di *DI) PlayerAvailable() error {
+	di.MPV()
+	return di.playerAvailable
+}
+
 func (di *DI) MPV() *mpv.LibMPV {
 	if di.mpv == nil {
 		w := di.c.MPVLogger
@@ -152,7 +170,8 @@ func (di *DI) MPV() *mpv.LibMPV {
 
 		di.mpv = mpv.New(log.New(w, "MPV ", 0))
 		if err := di.mpv.Init(); err != nil {
-			panic(err)
+			di.playerAvailable = err
+			di.Log().Println(err)
 		}
 	}
 	return di.mpv
@@ -174,10 +193,7 @@ func (di *DI) Player() *player.Player {
 
 func (di *DI) Collection() *collection.Collection {
 	if di.collection == nil {
-		l := di.c.Log
-		if l == nil {
-			l = log.New(os.Stderr, "", 0)
-		}
+		l := di.Log()
 		n := di.c.ConcurrentDownloads
 		if n <= 0 {
 			n = 8
