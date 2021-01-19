@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -20,6 +21,8 @@ var (
 	ErrNotExists = errors.New("playlist does not exist")
 	ErrExists    = errors.New("playlist already exists")
 )
+
+var nsRE = regexp.MustCompile(`[^a-zA-Z0-9]+`)
 
 func IsErrNotExists(err error) bool { return errors.Is(err, ErrNotExists) }
 func IsErrExists(err error) bool    { return errors.Is(err, ErrExists) }
@@ -63,16 +66,11 @@ func (c *Collection) globSongs() string {
 	return filepath.Join(c.pathSongs(), "*", "*", "*", "*")
 }
 
-func (c *Collection) pathSong(id IDer) string {
+func (c *Collection) SongPath(id IDer) string {
 	sum := sha256.Sum256([]byte(id.ID()))
 	l := base64.RawURLEncoding.EncodeToString(sum[:])
-
-	dir := filepath.Join(
-		c.pathSongs(),
-		id.NS(),
-		string(l[0]),
-		string(l[1]),
-	)
+	ns := nsRE.ReplaceAllString(id.NS(), "-")
+	dir := filepath.Join(c.pathSongs(), ns, string(l[0]), string(l[1]))
 
 	os.MkdirAll(dir, 0755)
 	return filepath.Join(dir, l)
@@ -444,7 +442,7 @@ func (c *Collection) QueueSong(s Song) {
 
 func (c *Collection) FromYoutube(r *youtube.Result) *YoutubeSong {
 	y := &YoutubeSong{r: r}
-	y.file = c.pathSong(y)
+	y.file = c.SongPath(y)
 	return y
 }
 
@@ -471,7 +469,7 @@ func (c *Collection) UnreferencedDownloads() []string {
 	songs := c.Songs()
 	songs = append(songs, c.q.Slice()...)
 	for _, s := range songs {
-		delete(gm, c.pathSong(s))
+		delete(gm, c.SongPath(s))
 	}
 
 	list := make([]string, 0, len(gm))
