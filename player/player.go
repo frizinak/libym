@@ -20,6 +20,8 @@ type Backend interface {
 	Position() time.Duration
 	Duration() time.Duration
 	Stop()
+
+	Close() error
 }
 
 type Player struct {
@@ -145,3 +147,4 @@ func (p *Player) Play() {
 
 func (p *Player) Pause()       { p.backend.Pause(true) }
 func (p *Player) Paused() bool { return p.stopped || p.backend.Paused() }
+func (p *Player) Close() error { return p.backend.Close() }

@@ -5,11 +5,13 @@ import (
 	"time"
 )
 
-var ErrNotSupported = errors.New("libmpv is not available, you will need to compile from source")
+var ErrNotSupported = errors.New("backend is not available, you will need to compile from source")
 
 type UnsupportedBackend struct {
 }
 
+func (u UnsupportedBackend) Init() error                        { return ErrNotSupported }
+func (u UnsupportedBackend) Close() error                       { return nil }
 func (u UnsupportedBackend) Stop()                              {}
 func (u UnsupportedBackend) Pause(bool)                         {}
 func (u UnsupportedBackend) Play(string) (chan struct{}, error) { return nil, ErrNotSupported }

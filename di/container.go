@@ -5,9 +5,11 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
+	libmpv "github.com/frizinak/libym/backend/mpv/lib"
+	rpcmpv "github.com/frizinak/libym/backend/mpv/rpc"
 	"github.com/frizinak/libym/collection"
-	"github.com/frizinak/libym/mpv"
 	"github.com/frizinak/libym/player"
 	"github.com/frizinak/libym/ui"
 	"github.com/frizinak/libym/ui/base"
@@ -24,7 +26,7 @@ type Config struct {
 	StorePath string
 
 	// Defaults to os.Stderr
-	MPVLogger io.Writer
+	BackendLogger io.Writer
 
 	AutoSave bool
 
@@ -37,22 +39,51 @@ type Config struct {
 	CustomError ui.ErrorReporter
 }
 
-type DI struct {
-	c Config
+type Backend interface {
+	Init() error
 
-	store           string
-	log             *log.Logger
-	mpv             *mpv.LibMPV
-	playerAvailable error
-	player          *player.Player
-	queue           *collection.Queue
-	collection      *collection.Collection
-	baseUI          *base.UI
-	commandParser   *ui.CommandParser
+	player.Backend
+}
+
+type BackendBuilder struct {
+	Name  string
+	Build func(di *DI, log *log.Logger) (Backend, error)
+}
+
+type DI struct {
+	c        Config
+	backends []BackendBuilder
+
+	store            string
+	log              *log.Logger
+	backend          Backend
+	backendName      string
+	backendAvailable error
+	player           *player.Player
+	queue            *collection.Queue
+	collection       *collection.Collection
+	baseUI           *base.UI
+	commandParser    *ui.CommandParser
 }
 
 func New(c Config) *DI {
-	return &DI{c: c}
+	di := &DI{c: c}
+	di.backends = []BackendBuilder{
+		{
+			Name: "libmpv",
+			Build: func(di *DI, log *log.Logger) (Backend, error) {
+				return libmpv.New(log), nil
+			},
+		},
+		{
+			Name: "mpv",
+			Build: func(di *DI, log *log.Logger) (Backend, error) {
+				return rpcmpv.New(log, filepath.Join(di.Store(), "mpv-ipc.sock")), nil
+			},
+		},
+	}
+
+	return di
 }
 
 func (di *DI) BaseUI() ui.UI {
@@ -146,35 +177,51 @@ func (di *DI) Store() string {
 			return di.store
 		}
 
-		home, err := os.UserHomeDir()
+		cache, err := os.UserCacheDir()
 		if err != nil {
 			panic(err)
 		}
-		di.store = filepath.Join(home, ".cache/ym")
+		di.store = filepath.Join(cache, "ym")
 	}
 
 	return di.store
 }
 
-func (di *DI) PlayerAvailable() error {
-	di.MPV()
-	return di.playerAvailable
+func (di *DI) BackendAvailable() (string, error) {
+	di.Backend()
+	return di.backendName, di.backendAvailable
 }
 
-func (di *DI) MPV() *mpv.LibMPV {
-	if di.mpv == nil {
-		w := di.c.MPVLogger
+func (di *DI) Backend() Backend {
+	if di.backend == nil {
+		w := di.c.BackendLogger
 		if w == nil {
 			w = os.Stderr
 		}
+		for _, b := range di.backends {
+			di.backendName = b.Name
 
-		di.mpv = mpv.New(log.New(w, "MPV ", 0))
-		if err := di.mpv.Init(); err != nil {
-			di.playerAvailable = err
-			di.Log().Println(err)
+			l := log.New(w, strings.ToUpper(b.Name)+": ", 0)
+			be, err := b.Build(di, l)
+			if err != nil {
+				l.Println(err)
+				di.backendAvailable = err
+				continue
+			}
+
+			if err := be.Init(); err != nil {
+				l.Println(err)
+				di.backendAvailable = err
+				continue
+			}
+
+			di.backend = be
+			di.backendAvailable = nil
+			break
 		}
 	}
-	return di.mpv
+
+	return di.backend
 }
 
 func (di *DI) Queue() *collection.Queue {
@@ -186,7 +233,7 @@ func (di *DI) Queue() *collection.Queue {
 
 func (di *DI) Player() *player.Player {
 	if di.player == nil {
-		di.player = player.NewPlayer(di.MPV(), di.Queue())
+		di.player = player.NewPlayer(di.Backend(), di.Queue())
 	}
 	return di.player
 }
