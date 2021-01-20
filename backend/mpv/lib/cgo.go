@@ -55,6 +55,9 @@ func (m *LibMPV) Close() error {
 
 func (m *LibMPV) GetPropertyDouble(n string) (float64, error) {
 	v, err := m.mpv.GetProperty(n, mpv.FORMAT_DOUBLE)
+	if err != nil || v == nil {
+		return 0, err
+	}
 	return v.(float64), err
 }
 
