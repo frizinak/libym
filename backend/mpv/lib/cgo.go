@@ -14,7 +14,8 @@ func New(log *log.Logger) *wrap.MPV {
 }
 
 type LibMPV struct {
-	mpv *mpv.Mpv
+	mpv     *mpv.Mpv
+	closing bool
 }
 
 func (m *LibMPV) Init(events chan<- wrap.Event) error {
@@ -38,6 +39,9 @@ func (m *LibMPV) Init(events chan<- wrap.Event) error {
 
 	go func() {
 		for {
+			if m.closing {
+				break
+			}
 			e := m.mpv.WaitEvent(1)
 			if id, ok := ev[e.Event_Id]; ok {
 				events <- wrap.Event{id}
@@ -49,6 +53,10 @@ func (m *LibMPV) Init(events chan<- wrap.Event) error {
 }
 
 func (m *LibMPV) Close() error {
+	if m.closing {
+		return nil
+	}
+	m.closing = true
 	m.mpv.TerminateDestroy()
 	return nil
 }
