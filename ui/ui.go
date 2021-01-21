@@ -8,7 +8,6 @@ import (
 
 type UI interface {
 	Input(string)
-	//Handle(Command)
 	Refresh()
 }
 

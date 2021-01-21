@@ -7,6 +7,10 @@ import (
 	"github.com/frizinak/libym/collection"
 )
 
+type ErrorReporter interface {
+	Err(error)
+}
+
 type Backend interface {
 	Play(string) (done chan struct{}, error error)
 	Paused() bool
@@ -25,26 +29,24 @@ type Backend interface {
 }
 
 type Player struct {
-	sem     sync.Mutex
-	backend Backend
-	q       *collection.Queue
+	sem      sync.Mutex
+	backend  Backend
+	reporter ErrorReporter
+	q        *collection.Queue
 
 	current *collection.QueueItem
-
-	err error
 
 	seq     byte
 	stopped bool
 }
 
-func NewPlayer(backend Backend, queue *collection.Queue) *Player {
+func NewPlayer(backend Backend, reporter ErrorReporter, queue *collection.Queue) *Player {
 	return &Player{
-		backend: backend,
-		q:       queue,
+		backend:  backend,
+		q:        queue,
+		reporter: reporter,
 	}
 }
-
-func (p *Player) Err() error { return p.err }
 
 func (p *Player) SetVolume(n float64)              { p.backend.SetVolume(n) }
 func (p *Player) IncreaseVolume(n float64)         { p.backend.IncreaseVolume(n) }
@@ -109,13 +111,15 @@ func (p *Player) Play() {
 
 	n, err := p.current.File()
 	if err != nil {
-		p.err = err
+		p.reporter.Err(err)
 	}
 
 	if !p.current.Local() {
 		u, err := p.current.URL()
 		if err != nil {
-			p.err = err
+			p.current = nil
+			p.q.Next()
+			p.reporter.Err(err)
 			return
 		}
 		n = u.String()
@@ -124,7 +128,7 @@ func (p *Player) Play() {
 	done, err := p.backend.Play(n)
 	if err != nil {
 		p.current = nil
-		p.err = err
+		p.reporter.Err(err)
 		return
 	}
 

@@ -46,7 +46,7 @@ func (r *Result) DownloadURL() (*url.URL, error) {
 	cmd.Stdout = buf
 	cmd.Stderr = bufe
 	if err := cmd.Run(); err != nil {
-		return nil, fmt.Errorf("%w: %s", err, bufe.String())
+		return nil, fmt.Errorf("%w: %s", err, strings.TrimSpace(bufe.String()))
 	}
 
 	return url.Parse(strings.TrimSpace(buf.String()))

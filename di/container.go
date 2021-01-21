@@ -233,7 +233,16 @@ func (di *DI) Queue() *collection.Queue {
 
 func (di *DI) Player() *player.Player {
 	if di.player == nil {
-		di.player = player.NewPlayer(di.Backend(), di.Queue())
+		err := di.c.CustomError
+		w := di.c.SimpleOutput
+		if w == nil {
+			w = os.Stdout
+		}
+		if err == nil {
+			err = ui.NewLogErrorReporter(log.New(w, "PLAYER ERR: ", 0))
+		}
+
+		di.player = player.NewPlayer(di.Backend(), err, di.Queue())
 	}
 	return di.player
 }

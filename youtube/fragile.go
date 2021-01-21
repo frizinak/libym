@@ -165,6 +165,22 @@ func decodeSearch(r io.Reader) (Results, error) {
 			continue
 		}
 
+		hasLiveBadge := false
+		badgeStyles := jsonquery.Find(e.Parent, "//badges//style")
+		for _, bs := range badgeStyles {
+			if bs.FirstChild == nil {
+				continue
+			}
+			if strings.Contains(bs.FirstChild.Data, "_LIVE_") {
+				hasLiveBadge = true
+				break
+			}
+		}
+
+		if hasLiveBadge {
+			continue
+		}
+
 		rs = append(
 			rs,
 			NewResult(e.FirstChild.Data, t.FirstChild.Data),
