@@ -265,7 +265,7 @@ func (u *UI) viewSearch(s *StateData) error {
 
 	songs := make([]ui.Song, 0, len(s.Search))
 	for _, s := range s.Search {
-		songs = append(songs, ui.NewUISong(s, false))
+		songs = append(songs, ui.NewUISong(u.c.FromYoutube(s), false))
 	}
 
 	u.AtomicFlush(func() {

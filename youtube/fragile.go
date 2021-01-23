@@ -8,6 +8,7 @@ import (
 	"io"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/antchfx/jsonquery"
 )
@@ -17,11 +18,15 @@ type reRuneReader struct {
 	r      io.RuneReader
 	re     *regexp.Regexp
 
-	ix  int
-	buf []rune
+	ix      int
+	buf     []byte
+	runeBuf []byte
 }
 
 func (r *reRuneReader) String() ([]string, error) {
+	r.runeBuf = make([]byte, 4)
+	r.buf = make([]byte, 0, r.maxlen)
+
 	res := r.re.FindReaderSubmatchIndex(r)
 	if len(res) < 4 {
 		return nil, nil
@@ -47,8 +52,9 @@ func (r *reRuneReader) ReadRune() (rune, int, error) {
 	if err != nil {
 		return rn, n, err
 	}
-	r.ix++
-	r.buf = append(r.buf, rn)
+	utf8.EncodeRune(r.runeBuf, rn)
+	r.ix += n
+	r.buf = append(r.buf, r.runeBuf[:n]...)
 	if len(r.buf) > r.maxlen {
 		r.buf = r.buf[len(r.buf)-r.maxlen:]
 	}

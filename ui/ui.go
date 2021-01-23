@@ -18,6 +18,8 @@ type Parser interface {
 
 type BaseSong interface {
 	Title() string
+	NS() string
+	ID() string
 }
 
 type Song interface {

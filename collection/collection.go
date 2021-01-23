@@ -72,7 +72,6 @@ func (c *Collection) SongPath(id IDer) string {
 	ns := nsRE.ReplaceAllString(id.NS(), "-")
 	dir := filepath.Join(c.pathSongs(), ns, string(l[0]), string(l[1]))
 
-	os.MkdirAll(dir, 0755)
 	return filepath.Join(dir, l)
 }
 
@@ -159,6 +158,7 @@ func (c *Collection) Init() error {
 			for w := range workDownloads {
 				do := func() error {
 					file, err := w.File()
+					os.MkdirAll(filepath.Dir(file), 0755)
 					if err != nil {
 						return err
 					}
