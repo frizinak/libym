@@ -75,8 +75,13 @@ func pageTitle(r io.Reader) (string, error) {
 	}
 
 	title := strings.TrimSpace(html.UnescapeString(s[1]))
-	if len(title) < 10 && strings.Contains(s[1], "YouTube") {
+	if len(title) < 10 && strings.Contains(title, "YouTube") {
 		return "", errors.New("invalid page")
+	}
+
+	const suff = " - YouTube"
+	if strings.HasSuffix(title, suff) {
+		title = title[:len(title)-len(suff)]
 	}
 
 	return title, nil
