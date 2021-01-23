@@ -1,5 +1,9 @@
+github.com/PuerkitoBio/goquery v1.6.1 h1:FgjbQZKl5HTmcn4sKBgvx8vv63nhyhIpv7lJpFGCWpk=
+github.com/PuerkitoBio/goquery v1.6.1/go.mod h1:GsLWisAFVj4WgDibEWF4pvYnkVQBpKBKeU+7zCJoLcc=
 github.com/YouROK/go-mpv v0.0.0-20160721123233-ecdfd901e332 h1:nrVDN4BzWLtR0O8AzCLw0Fxxhf51Ez6xI69KH5nccNE=
 github.com/YouROK/go-mpv v0.0.0-20160721123233-ecdfd901e332/go.mod h1:QS4kWL5x2B4XoUw0YwlLx5lfUq3r4JcdrE8QOH6uubk=
+github.com/andybalholm/cascadia v1.1.0 h1:BuuO6sSfQNFRu1LppgbD25Hr2vLYW25JvxHs5zzsLTo=
+github.com/andybalholm/cascadia v1.1.0/go.mod h1:GsXiBklL0woXo1j/WYWtSYYC4ouU9PqHO0sqidkEA4Y=
 github.com/antchfx/jsonquery v1.1.4 h1:+OlFO3QS9wjU0MKx9MgHm5f6o6hdd4e9mUTp0wTjxlM=
 github.com/antchfx/jsonquery v1.1.4/go.mod h1:cHs8r6Bymd8j6HI6Ej1IJbjahKvLBcIEh54dfmo+E9A=
 github.com/antchfx/xpath v1.1.7 h1:RgnAdTaRzF4bBiTqdDA7ZQ7IU8ivc72KSTf3/XCA/ic=
@@ -8,5 +12,11 @@ github.com/frizinak/binary v0.1.0 h1:JKqTBgHFzbRCYf7jjvwyKp95xeqt9RSi0l0rdxvSdu0
 github.com/frizinak/binary v0.1.0/go.mod h1:XLSAtIYW86xHUC90aSQBD0h6SSkh/p5JdKXUB+tXsEE=
 github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e h1:1r7pUrabqp18hOBcwBwiTsbnFeTZHV9eER/QT5JVZxY=
 github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e/go.mod h1:cIg4eruTrX1D+g88fzRXU5OdNfaM+9IcxsU14FzY7Hc=
+golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2/go.mod h1:djNgcEr1/C05ACkg1iLfiJU5Ep61QUkGW8qpdssI0+w=
+golang.org/x/net v0.0.0-20180218175443-cbe0f9307d01/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
+golang.org/x/net v0.0.0-20200202094626-16171245cfb2 h1:CCH4IOTTfewWjGOlSp+zGcjutRKlBEZQ6wTn8ozI/nI=
+golang.org/x/net v0.0.0-20200202094626-16171245cfb2/go.mod h1:z5CRVTTTmAJ677TzLLGU+0bjPO0LkuOLi4/5GtJWs/s=
+golang.org/x/sys v0.0.0-20190215142949-d0b11bdaac8a/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
+golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
 gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce h1:+JknDZhAj8YMt7GC73Ei8pv4MzjDUNPHgQWJdtMAaDU=
 gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce/go.mod h1:5AcXVHNjg+BDxry382+8OKon8SEWiKktQR07RKPsv1c=

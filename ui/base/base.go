@@ -4,14 +4,17 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/url"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/frizinak/libym/collection"
 	"github.com/frizinak/libym/player"
+	"github.com/frizinak/libym/scraper"
 	"github.com/frizinak/libym/ui"
 	"github.com/frizinak/libym/youtube"
 )
@@ -25,6 +28,7 @@ const (
 	ViewPlaylist
 	ViewPlaylists
 	ViewHelp
+	ViewJobs
 )
 
 var viewNames = map[View]string{
@@ -34,6 +38,7 @@ var viewNames = map[View]string{
 	ViewPlaylist:  "playlist",
 	ViewPlaylists: "playlists",
 	ViewHelp:      "help",
+	ViewJobs:      "jobs",
 }
 
 type Can byte
@@ -46,6 +51,51 @@ const (
 	CanQueue
 )
 
+type Job struct {
+	id       string
+	Name     string
+	Progress float64
+}
+
+func (j *Job) ID() string {
+	return j.id
+}
+
+type Jobs struct {
+	mutex sync.RWMutex
+	j     map[string]*Job
+	n     uint64
+}
+
+func (j *Jobs) Add(name string) *Job {
+	j.mutex.Lock()
+	j.n++
+	jobid := fmt.Sprintf("%d-%s", j.n, name)
+	job := &Job{id: jobid, Name: name}
+	j.j[jobid] = job
+	j.mutex.Unlock()
+	return job
+}
+
+func (j *Jobs) Remove(id string) {
+	j.mutex.Lock()
+	delete(j.j, id)
+	j.mutex.Unlock()
+}
+
+func (j *Jobs) List() []*Job {
+	l := make([]*Job, 0, len(j.j))
+	j.mutex.RLock()
+	for _, j := range j.j {
+		l = append(l, j)
+	}
+	j.mutex.RUnlock()
+	sort.Slice(l, func(i, j int) bool {
+		return l[i].id < l[j].id
+	})
+	return l
+}
+
 type StateData struct {
 	view  View
 	title string
@@ -57,6 +107,8 @@ type StateData struct {
 	QueryOfOwnResult string
 
 	Playlist string
+
+	jobs *Jobs
 
 	Songs  []collection.Song
 	Search []*youtube.Result
@@ -103,7 +155,7 @@ type State struct {
 }
 
 func NewState() *State {
-	return &State{s: &StateData{}}
+	return &State{s: &StateData{jobs: &Jobs{j: make(map[string]*Job)}}}
 }
 
 func (s *State) Do(cb func(*StateData) error) error {
@@ -182,6 +234,8 @@ func (u *UI) refresh() error {
 			return u.viewPlaylist(s)
 		case ViewQueue:
 			return u.viewQueue(s)
+		case ViewJobs:
+			return u.viewJobs(s)
 		}
 
 		return nil
@@ -217,6 +271,22 @@ func (u *UI) viewSearch(s *StateData) error {
 	u.AtomicFlush(func() {
 		u.SetTitle(s.Title())
 		u.SetSongs(songs)
+	})
+
+	return nil
+}
+
+func (u *UI) viewJobs(s *StateData) error {
+	s.SetCan()
+	jobs := s.jobs.List()
+	l := make([]string, len(jobs))
+	for i, j := range jobs {
+		l[i] = fmt.Sprintf("%s %3d%%", j.Name, int(100*j.Progress))
+	}
+
+	u.AtomicFlush(func() {
+		u.SetTitle(s.Title())
+		u.SetText(strings.Join(l, "\n"))
 	})
 
 	return nil
@@ -398,6 +468,10 @@ func (u *UI) handle(cmd ui.Command) error {
 		return u.handleViewPlaylists(cmd)
 	case ui.CmdSearchOwn:
 		return u.handleSearchOwn(cmd)
+	case ui.CmdScrape:
+		return u.handleScrape(cmd)
+	case ui.CmdJobs:
+		return u.handleJobs(cmd)
 	default:
 		return fmt.Errorf("%s is not implemented", cmd.Cmd())
 	}
@@ -635,6 +709,67 @@ func (u *UI) handleSearchOwn(cmd ui.Command) error {
 		s.QueryOwn = q
 		return nil
 	})
+}
+
+func (u *UI) handleJobs(cmd ui.Command) error {
+	return u.s.Do(func(s *StateData) error {
+		s.SetView(ViewJobs, "")
+		return nil
+	})
+}
+
+func (u *UI) handleScrape(cmd ui.Command) error {
+	args := cmd.Args()
+	pl := args[0].String()
+	if !u.c.Exists(pl) {
+		return fmt.Errorf("%s: playlist %s does not exist", cmd.Cmd(), pl)
+	}
+
+	uri := args[1].String()
+	if uri == "" {
+		return fmt.Errorf("%s requires a url to scrape", cmd.Cmd())
+	}
+
+	var job *Job
+	u.s.Do(func(s *StateData) error {
+		job = s.jobs.Add(fmt.Sprintf("scrape: %s %s", pl, uri))
+		s.SetView(ViewJobs, "")
+		return nil
+	})
+
+	go func() {
+		defer u.s.Do(func(s *StateData) error {
+			s.jobs.Remove(job.ID())
+			return nil
+		})
+
+		scr := scraper.New(scraper.Config{
+			Concurrency: 8,
+			MaxDepth:    1,
+			Callback: func(uri *url.URL, doc *goquery.Document, depth, item, total int) error {
+				if total == 0 {
+					return nil
+				}
+				job.Progress = float64(item) / float64(total)
+				return nil
+			},
+		})
+
+		ys := youtube.NewScraper(scr)
+		result, err := ys.Scrape(uri)
+		if err != nil {
+			u.l.Err(fmt.Errorf("%s error: %w", cmd.Cmd(), err))
+			return
+		}
+
+		for _, r := range result {
+			if err := u.c.AddSong(pl, u.c.FromYoutube(r)); err != nil {
+				u.l.Err(fmt.Errorf("%s error: %w", cmd.Cmd(), err))
+			}
+		}
+	}()
+
+	return nil
 }
 
 func (u *UI) handleQueueClear(cmd ui.Command) error {

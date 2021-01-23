@@ -298,6 +298,13 @@ func (c *Collection) Create(n string) error {
 	return nil
 }
 
+func (c *Collection) Exists(n string) bool {
+	c.sem.RLock()
+	_, ok := c.playlists[n]
+	c.sem.RUnlock()
+	return ok
+}
+
 func (c *Collection) Delete(n string) error {
 	n = c.clean(n)
 

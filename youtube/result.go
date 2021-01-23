@@ -7,6 +7,9 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+
+	"github.com/PuerkitoBio/goquery"
+	"github.com/frizinak/libym/scraper"
 )
 
 type Results []*Result
@@ -107,4 +110,57 @@ func FromURL(u, title string) (*Result, error) {
 	}
 
 	return nil, fmt.Errorf("'%s' does not seem to be a youtube video url", u)
+}
+
+type Scraper struct {
+	s  *scraper.Scraper
+	cb *ScraperCallback
+}
+
+func NewScraper(s *scraper.Scraper) *Scraper {
+	return &Scraper{s: s, cb: NewScraperCallback()}
+}
+
+func (s *Scraper) Scrape(uri string) ([]*Result, error) {
+	err := s.s.Scrape(uri, s.cb.Callback)
+	return s.cb.Results(), err.Error()
+}
+
+type ScraperCallback struct {
+	re      *regexp.Regexp
+	uniq    map[string]struct{}
+	results []*Result
+}
+
+func NewScraperCallback() *ScraperCallback {
+	return &ScraperCallback{
+		re:      regexp.MustCompile(`https?://[^'"]*youtu[^'"]*`),
+		uniq:    make(map[string]struct{}, 0),
+		results: make([]*Result, 0),
+	}
+}
+
+func (s *ScraperCallback) Results() []*Result {
+	return s.results
+}
+
+func (s *ScraperCallback) Callback(uri *url.URL, doc *goquery.Document, depth, item, total int) error {
+	html, err := doc.Html()
+	if err != nil {
+		return err
+	}
+	for _, u := range s.re.FindAllString(html, -1) {
+		result, err := FromURL(u, "")
+		if err != nil {
+			continue
+		}
+		id := result.ID()
+		if _, ok := s.uniq[id]; ok {
+			continue
+		}
+		s.uniq[id] = struct{}{}
+		s.results = append(s.results, result)
+	}
+
+	return nil
 }

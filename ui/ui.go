@@ -87,6 +87,8 @@ const (
 	CmdViewPlaylists
 	CmdSearchOwn
 	CmdVolume
+	CmdScrape
+	CmdJobs
 )
 
 type ArgAmount byte
@@ -119,6 +121,8 @@ var texts = map[CommandType]string{
 	CmdViewPlaylist:   "switch to a playlist view",
 	CmdViewPlaylists:  "list all playlists",
 	CmdSearchOwn:      "search for songs across playlists",
+	CmdScrape:         "scrape a url and add all songs to the given playlist",
+	CmdJobs:           "list jobs in progress",
 }
 
 type Args []Arg
