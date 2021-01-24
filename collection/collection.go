@@ -42,6 +42,7 @@ type Collection struct {
 	unmarshalers map[string]Unmarshaler
 
 	newSong chan Song
+	running bool
 }
 
 func New(l *log.Logger, dir string, queue *Queue, concurrentDownloads int, autoSave bool) *Collection {
@@ -77,6 +78,15 @@ func (c *Collection) SongPath(id IDer) string {
 
 func (c *Collection) Init() error {
 	os.MkdirAll(c.dir, 0755)
+	c.newSong = make(chan Song, c.concurrent)
+	done := make(chan struct{}, 1)
+	go func() {
+		for range c.newSong {
+			// ignore while loading
+		}
+		done <- struct{}{}
+	}()
+
 	c.RegisterUnmarshaler(
 		NSYoutube,
 		func(dec *binary.Reader) (Song, error) {
@@ -127,9 +137,33 @@ func (c *Collection) Init() error {
 		}
 	}()
 
-	workers := c.concurrent
-	workDownloads := make(chan Song, workers)
-	workTitles := make(chan Song, workers)
+	if err := c.Load(); err != nil {
+		return err
+	}
+	loading = false
+	close(c.newSong)
+	<-done
+	c.newSong = make(chan Song, c.concurrent)
+
+	return nil
+}
+
+func (c *Collection) Run() {
+	c.sem.Lock()
+	if c.running {
+		c.sem.Unlock()
+		return
+	}
+	c.running = true
+	c.sem.Unlock()
+
+	g, _ := filepath.Glob(c.globSongs() + ".tmp")
+	for _, p := range g {
+		os.Remove(p)
+	}
+
+	workDownloads := make(chan Song, c.concurrent)
+	workTitles := make(chan Song, c.concurrent)
 	go func() {
 		for w := range workTitles {
 			if w.Title() != "" {
@@ -148,12 +182,7 @@ func (c *Collection) Init() error {
 		}
 	}()
 
-	g, _ := filepath.Glob(c.globSongs() + ".tmp")
-	for _, p := range g {
-		os.Remove(p)
-	}
-
-	for i := 0; i < workers; i++ {
+	for i := 0; i < c.concurrent; i++ {
 		go func() {
 			for w := range workDownloads {
 				do := func() error {
@@ -226,23 +255,14 @@ func (c *Collection) Init() error {
 		workDownloads <- s
 	}
 
-	c.newSong = make(chan Song, workers)
 	go func() {
 		for s := range c.newSong {
-			if loading {
-				continue
-			}
 			go func(s Song) {
 				addTitle(s)
 				addDownload(s)
 			}(s)
 		}
 	}()
-
-	if err := c.Load(); err != nil {
-		return err
-	}
-	loading = false
 
 	go func() {
 		since := time.Time{}
@@ -267,8 +287,6 @@ func (c *Collection) Init() error {
 			eachSong(addDownload)
 		}
 	}()
-
-	return nil
 }
 
 func (c *Collection) changed() {

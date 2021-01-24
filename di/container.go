@@ -111,12 +111,15 @@ func (di *DI) BaseUI() ui.UI {
 			err = ui.NewLogErrorReporter(log.New(w, "UI ERR: ", 0))
 		}
 
+		col := di.Collection()
+		col.Run()
+
 		di.baseUI = base.New(
 			output,
 			err,
 			di.CommandParser(),
 			di.Player(),
-			di.Collection(),
+			col,
 			di.Queue(),
 		)
 	}
