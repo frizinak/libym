@@ -139,8 +139,9 @@ func (di *DI) CommandParser() *ui.CommandParser {
 		di.commandParser.Alias(ui.CmdPrev, ui.Zero, "<", "prev", "previous")
 		di.commandParser.Alias(ui.CmdSeek, ui.One, "seek")
 
-		di.commandParser.Alias(ui.CmdScrape, ui.Two, "scrape")
+		di.commandParser.Alias(ui.CmdScrape, ui.Varadic, "scrape")
 		di.commandParser.Alias(ui.CmdJobs, ui.Zero, "jobs")
+		di.commandParser.Alias(ui.CmdCancelJob, ui.One, "cancel")
 
 		di.commandParser.Alias(ui.CmdPlaylistAdd, ui.One, "create-playlist")
 		di.commandParser.Alias(ui.CmdPlaylistDelete, ui.One, "remove-playlist")

@@ -90,10 +90,10 @@ func (r result) Error() *Error {
 }
 
 func (s *Scraper) Scrape(uri string, cb Callback) Errors {
-	return s.ScrapeContext(context.Background(), uri, cb)
+	return s.ScrapeWithContext(context.Background(), uri, cb)
 }
 
-func (s *Scraper) ScrapeContext(ctx context.Context, uri string, cb Callback) Errors {
+func (s *Scraper) ScrapeWithContext(ctx context.Context, uri string, cb Callback) Errors {
 	u, err := url.Parse(uri)
 	if err != nil {
 		return Errors{{uri, err}}

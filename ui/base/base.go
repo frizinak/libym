@@ -1,6 +1,7 @@
 package base
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -38,16 +39,24 @@ const (
 	CanSongRemove
 	CanMove
 	CanQueue
+	CanCancelJob
 )
 
 type Job struct {
 	id       string
 	Name     string
 	Progress float64
+	cancel   func()
 }
 
-func (j *Job) ID() string {
-	return j.id
+func (j *Job) ID() string              { return j.id }
+func (j *Job) SetCancel(cancel func()) { j.cancel = cancel }
+func (j *Job) Cancel() {
+	c := j.cancel
+	if c != nil {
+		c()
+		j.cancel = nil
+	}
 }
 
 type Jobs struct {
@@ -70,6 +79,13 @@ func (j *Jobs) Remove(id string) {
 	j.mutex.Lock()
 	delete(j.j, id)
 	j.mutex.Unlock()
+}
+
+func (j *Jobs) Len() int {
+	j.mutex.RLock()
+	l := len(j.j)
+	j.mutex.RUnlock()
+	return l
 }
 
 func (j *Jobs) List() []*Job {
@@ -297,11 +313,11 @@ func (u *UI) viewExternal(view ui.View, s *StateData) error {
 }
 
 func (u *UI) viewJobs(view ui.View, s *StateData) error {
-	s.SetCan()
+	s.SetCan(CanCancelJob)
 	jobs := s.jobs.List()
 	l := make([]string, len(jobs))
 	for i, j := range jobs {
-		l[i] = fmt.Sprintf("%s %3d%%", j.Name, int(100*j.Progress))
+		l[i] = fmt.Sprintf("%2d %s %3d%%", i+1, j.Name, int(100*j.Progress))
 	}
 
 	u.AtomicFlush(func(a ui.AtomicOutput) {
@@ -497,6 +513,8 @@ func (u *UI) handle(cmd ui.Command) error {
 		return u.handleScrape(cmd)
 	case ui.CmdJobs:
 		return u.handleJobs(cmd)
+	case ui.CmdCancelJob:
+		return u.handleCancelJobs(cmd)
 	default:
 		return fmt.Errorf("%s is not implemented", cmd.Cmd())
 	}
@@ -743,56 +761,112 @@ func (u *UI) handleJobs(cmd ui.Command) error {
 	})
 }
 
+func (u *UI) handleCancelJobs(cmd ui.Command) error {
+	ints, ok := cmd.Args()[0].IntRange()
+	if !ok {
+		return fmt.Errorf("%s requires a range of jobs to cancel", cmd.Cmd())
+	}
+
+	return u.s.Do(func(s *StateData) error {
+		jobs := s.jobs.List()
+		cancel := make([]*Job, 0)
+		for _, n := range ints {
+			n--
+			if n < 0 || n >= len(jobs) {
+				return fmt.Errorf("invalid range")
+			}
+			cancel = append(cancel, jobs[n])
+		}
+
+		for _, c := range cancel {
+			c.Cancel()
+		}
+
+		return nil
+	})
+}
+
 func (u *UI) handleScrape(cmd ui.Command) error {
 	args := cmd.Args()
+	if len(args) < 2 {
+		return fmt.Errorf("%s requires at least a playlist name and a url", cmd.Cmd())
+	}
+
 	pl := args[0].String()
 	if !u.c.Exists(pl) {
 		return fmt.Errorf("%s: playlist %s does not exist", cmd.Cmd(), pl)
 	}
 
-	uri := args[1].String()
-	if uri == "" {
-		return fmt.Errorf("%s requires a url to scrape", cmd.Cmd())
+	_depth := args[len(args)-1]
+	args = args[1 : len(args)-1]
+
+	depth, ok := _depth.Int()
+	if !ok {
+		depth = 1
+		args = args[:len(args)+1]
+	}
+	if depth < 0 {
+		depth = 0
 	}
 
-	var job *Job
+	uris := args.Strings()
+	if len(uris) == 0 {
+		return fmt.Errorf("%s requires at least one url", cmd.Cmd())
+	}
+
+	concurrency := 32
+	totalJobs := len(uris)
 	u.s.Do(func(s *StateData) error {
-		job = s.jobs.Add(fmt.Sprintf("scrape: %s %s", pl, uri))
-		s.SetView(ui.ViewJobs, "")
+		totalJobs += s.jobs.Len()
 		return nil
 	})
 
-	go func() {
-		defer u.s.Do(func(s *StateData) error {
-			s.jobs.Remove(job.ID())
+	concurrency /= totalJobs
+	if concurrency < 1 {
+		concurrency = 1
+	}
+
+	for _, uri := range uris {
+		var job *Job
+		u.s.Do(func(s *StateData) error {
+			job = s.jobs.Add(fmt.Sprintf("scrape: %s %s", pl, uri))
+			s.SetView(ui.ViewJobs, "")
 			return nil
 		})
 
-		scr := scraper.New(scraper.Config{
-			Concurrency: 8,
-			MaxDepth:    1,
-			Callback: func(uri *url.URL, doc *goquery.Document, depth, item, total int) error {
-				if total == 0 {
-					return nil
-				}
-				job.Progress = float64(item) / float64(total)
+		go func(uri string) {
+			defer u.s.Do(func(s *StateData) error {
+				s.jobs.Remove(job.ID())
 				return nil
-			},
-		})
+			})
 
-		ys := youtube.NewScraper(scr)
-		result, err := ys.Scrape(uri)
-		if err != nil {
-			u.l.Err(fmt.Errorf("%s error: %w", cmd.Cmd(), err))
-			return
-		}
+			scr := scraper.New(scraper.Config{
+				Concurrency: concurrency,
+				MaxDepth:    depth,
+				Callback: func(uri *url.URL, doc *goquery.Document, depth, item, total int) error {
+					if total == 0 {
+						return nil
+					}
+					job.Progress = float64(item) / float64(total)
+					return nil
+				},
+			})
 
-		for _, r := range result {
-			if err := u.c.AddSong(pl, u.c.FromYoutube(r)); err != nil {
+			ctx, cancel := context.WithCancel(context.Background())
+			job.SetCancel(cancel)
+
+			err := youtube.NewScraper(scr, func(r *youtube.Result) {
+				if err := u.c.AddSong(pl, u.c.FromYoutube(r)); err != nil {
+					u.l.Err(fmt.Errorf("%s error: %w", cmd.Cmd(), err))
+				}
+			}).ScrapeWithContext(ctx, uri)
+
+			if err != nil {
 				u.l.Err(fmt.Errorf("%s error: %w", cmd.Cmd(), err))
+				return
 			}
-		}
-	}()
+		}(uri)
+	}
 
 	return nil
 }

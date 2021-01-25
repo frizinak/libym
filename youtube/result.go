@@ -2,6 +2,7 @@ package youtube
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"net/url"
 	"os/exec"
@@ -117,31 +118,30 @@ type Scraper struct {
 	cb *ScraperCallback
 }
 
-func NewScraper(s *scraper.Scraper) *Scraper {
-	return &Scraper{s: s, cb: NewScraperCallback()}
+func NewScraper(s *scraper.Scraper, cb func(*Result)) *Scraper {
+	return &Scraper{s: s, cb: NewScraperCallback(cb)}
 }
 
-func (s *Scraper) Scrape(uri string) ([]*Result, error) {
-	err := s.s.Scrape(uri, s.cb.Callback)
-	return s.cb.Results(), err.Error()
+func (s *Scraper) Scrape(uri string) error {
+	return s.ScrapeWithContext(context.Background(), uri)
+}
+
+func (s *Scraper) ScrapeWithContext(ctx context.Context, uri string) error {
+	return s.s.ScrapeWithContext(ctx, uri, s.cb.Callback).Error()
 }
 
 type ScraperCallback struct {
-	re      *regexp.Regexp
-	uniq    map[string]struct{}
-	results []*Result
+	re   *regexp.Regexp
+	uniq map[string]struct{}
+	cb   func(*Result)
 }
 
-func NewScraperCallback() *ScraperCallback {
+func NewScraperCallback(cb func(*Result)) *ScraperCallback {
 	return &ScraperCallback{
-		re:      regexp.MustCompile(`https?://[^'"]*youtu[^'"]*`),
-		uniq:    make(map[string]struct{}, 0),
-		results: make([]*Result, 0),
+		cb:   cb,
+		re:   regexp.MustCompile(`https?://[^'"]*youtu[^'"]*`),
+		uniq: make(map[string]struct{}, 0),
 	}
-}
-
-func (s *ScraperCallback) Results() []*Result {
-	return s.results
 }
 
 func (s *ScraperCallback) Callback(uri *url.URL, doc *goquery.Document, depth, item, total int) error {
@@ -159,7 +159,7 @@ func (s *ScraperCallback) Callback(uri *url.URL, doc *goquery.Document, depth, i
 			continue
 		}
 		s.uniq[id] = struct{}{}
-		s.results = append(s.results, result)
+		s.cb(result)
 	}
 
 	return nil
