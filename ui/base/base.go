@@ -19,26 +19,15 @@ import (
 	"github.com/frizinak/libym/youtube"
 )
 
-type View int
-
-const (
-	ViewQueue View = iota
-	ViewSearch
-	ViewSearchOwn
-	ViewPlaylist
-	ViewPlaylists
-	ViewHelp
-	ViewJobs
-)
-
-var viewNames = map[View]string{
-	ViewQueue:     "queue",
-	ViewSearch:    "search",
-	ViewSearchOwn: "search for local songs",
-	ViewPlaylist:  "playlist",
-	ViewPlaylists: "playlists",
-	ViewHelp:      "help",
-	ViewJobs:      "jobs",
+var viewNames = map[ui.View]string{
+	ui.ViewQueue:     "queue",
+	ui.ViewSearch:    "search",
+	ui.ViewSearchOwn: "search for local songs",
+	ui.ViewPlaylist:  "playlist",
+	ui.ViewPlaylists: "playlists",
+	ui.ViewHelp:      "help",
+	ui.ViewJobs:      "jobs",
+	ui.ViewExternal:  "external",
 }
 
 type Can byte
@@ -97,7 +86,7 @@ func (j *Jobs) List() []*Job {
 }
 
 type StateData struct {
-	view  View
+	view  ui.View
 	title string
 
 	Query         string
@@ -110,15 +99,16 @@ type StateData struct {
 
 	jobs *Jobs
 
-	Songs  []collection.Song
-	Search []*youtube.Result
+	Songs    []collection.Song
+	External []collection.Song
+	Search   []*youtube.Result
 
 	can map[Can]struct{}
 }
 
-func (s *StateData) View() View { return s.view }
+func (s *StateData) View() ui.View { return s.view }
 
-func (s *StateData) SetView(v View, title string) {
+func (s *StateData) SetView(v ui.View, title string) {
 	s.view = v
 	s.title = title
 
@@ -212,6 +202,14 @@ func (u *UI) Handle(cmd ui.Command) {
 	u.Refresh()
 }
 
+func (u *UI) SetExternal(title string, ext []collection.Song) {
+	u.s.Do(func(s *StateData) error {
+		s.SetView(ui.ViewExternal, title)
+		s.External = ext
+		return nil
+	})
+}
+
 func (u *UI) Refresh() {
 	if err := u.refresh(); err != nil {
 		u.l.Err(err)
@@ -221,37 +219,41 @@ func (u *UI) Refresh() {
 func (u *UI) refresh() error {
 	return u.s.Do(func(s *StateData) error {
 		s.SetCan()
-		switch s.View() {
-		case ViewHelp:
-			return u.viewHelp(s)
-		case ViewSearch:
-			return u.viewSearch(s)
-		case ViewSearchOwn:
-			return u.viewSearchOwn(s)
-		case ViewPlaylists:
-			return u.viewPlaylists(s)
-		case ViewPlaylist:
-			return u.viewPlaylist(s)
-		case ViewQueue:
-			return u.viewQueue(s)
-		case ViewJobs:
-			return u.viewJobs(s)
+		v := s.View()
+		switch v {
+		case ui.ViewHelp:
+			return u.viewHelp(v, s)
+		case ui.ViewSearch:
+			return u.viewSearch(v, s)
+		case ui.ViewSearchOwn:
+			return u.viewSearchOwn(v, s)
+		case ui.ViewPlaylists:
+			return u.viewPlaylists(v, s)
+		case ui.ViewPlaylist:
+			return u.viewPlaylist(v, s)
+		case ui.ViewQueue:
+			return u.viewQueue(v, s)
+		case ui.ViewJobs:
+			return u.viewJobs(v, s)
+		case ui.ViewExternal:
+			return u.viewExternal(v, s)
 		}
 
 		return nil
 	})
 }
 
-func (u *UI) viewHelp(s *StateData) error {
+func (u *UI) viewHelp(view ui.View, s *StateData) error {
 	n := u.help()
-	u.AtomicFlush(func() {
-		u.SetTitle(s.Title())
-		u.SetText(n)
+	u.AtomicFlush(func(a ui.AtomicOutput) {
+		a.SetView(view)
+		a.SetTitle(s.Title())
+		a.SetText(n)
 	})
 	return nil
 }
 
-func (u *UI) viewSearch(s *StateData) error {
+func (u *UI) viewSearch(view ui.View, s *StateData) error {
 	s.SetCan(CanSearchResult, CanQueue)
 
 	if s.Query != s.QueryOfResult {
@@ -268,15 +270,33 @@ func (u *UI) viewSearch(s *StateData) error {
 		songs = append(songs, ui.NewUISong(u.c.FromYoutube(s), false))
 	}
 
-	u.AtomicFlush(func() {
-		u.SetTitle(s.Title())
-		u.SetSongs(songs)
+	u.AtomicFlush(func(a ui.AtomicOutput) {
+		a.SetView(view)
+		a.SetTitle(s.Title())
+		a.SetSongs(songs)
 	})
 
 	return nil
 }
 
-func (u *UI) viewJobs(s *StateData) error {
+func (u *UI) viewExternal(view ui.View, s *StateData) error {
+	s.SetCan(CanSong, CanQueue)
+	songs := make([]ui.Song, 0, len(s.External))
+	for _, s := range s.External {
+		songs = append(songs, ui.NewUISong(s, false))
+	}
+
+	s.Songs = s.External
+	u.AtomicFlush(func(a ui.AtomicOutput) {
+		a.SetView(view)
+		a.SetTitle(s.Title())
+		a.SetSongs(songs)
+	})
+
+	return nil
+}
+
+func (u *UI) viewJobs(view ui.View, s *StateData) error {
 	s.SetCan()
 	jobs := s.jobs.List()
 	l := make([]string, len(jobs))
@@ -284,15 +304,16 @@ func (u *UI) viewJobs(s *StateData) error {
 		l[i] = fmt.Sprintf("%s %3d%%", j.Name, int(100*j.Progress))
 	}
 
-	u.AtomicFlush(func() {
-		u.SetTitle(s.Title())
-		u.SetText(strings.Join(l, "\n"))
+	u.AtomicFlush(func(a ui.AtomicOutput) {
+		a.SetView(view)
+		a.SetTitle(s.Title())
+		a.SetText(strings.Join(l, "\n"))
 	})
 
 	return nil
 }
 
-func (u *UI) viewSearchOwn(s *StateData) error {
+func (u *UI) viewSearchOwn(view ui.View, s *StateData) error {
 	s.SetCan(CanSong, CanQueue)
 
 	if s.QueryOwn != s.QueryOfOwnResult {
@@ -306,28 +327,30 @@ func (u *UI) viewSearchOwn(s *StateData) error {
 		songs = append(songs, ui.NewUISong(s, false))
 	}
 
-	u.AtomicFlush(func() {
-		u.SetTitle(s.Title())
-		u.SetSongs(songs)
+	u.AtomicFlush(func(a ui.AtomicOutput) {
+		a.SetView(view)
+		a.SetTitle(s.Title())
+		a.SetSongs(songs)
 	})
 
 	return nil
 }
 
-func (u *UI) viewPlaylists(s *StateData) error {
+func (u *UI) viewPlaylists(view ui.View, s *StateData) error {
 	s.SetCan()
 
 	l := u.c.List()
 	sort.Strings(l)
-	u.AtomicFlush(func() {
-		u.SetTitle(s.Title())
-		u.SetText(strings.Join(l, "\n"))
+	u.AtomicFlush(func(a ui.AtomicOutput) {
+		a.SetView(view)
+		a.SetTitle(s.Title())
+		a.SetText(strings.Join(l, "\n"))
 	})
 
 	return nil
 }
 
-func (u *UI) viewPlaylist(s *StateData) error {
+func (u *UI) viewPlaylist(view ui.View, s *StateData) error {
 	s.SetCan(CanSong, CanSongRemove, CanMove, CanQueue)
 
 	result, err := u.c.PlaylistSongs(s.Playlist)
@@ -341,14 +364,15 @@ func (u *UI) viewPlaylist(s *StateData) error {
 	}
 	s.Songs = result
 
-	u.AtomicFlush(func() {
-		u.SetTitle(s.Title())
-		u.SetSongs(songs)
+	u.AtomicFlush(func(a ui.AtomicOutput) {
+		a.SetView(view)
+		a.SetTitle(s.Title())
+		a.SetSongs(songs)
 	})
 	return nil
 }
 
-func (u *UI) viewQueue(s *StateData) error {
+func (u *UI) viewQueue(view ui.View, s *StateData) error {
 	s.SetCan(CanSong)
 
 	ix := u.q.CurrentIndex()
@@ -359,9 +383,10 @@ func (u *UI) viewQueue(s *StateData) error {
 	}
 	s.Songs = result
 
-	u.AtomicFlush(func() {
-		u.SetTitle(s.Title())
-		u.SetSongs(songs)
+	u.AtomicFlush(func(a ui.AtomicOutput) {
+		a.SetView(view)
+		a.SetTitle(s.Title())
+		a.SetSongs(songs)
 	})
 	return nil
 }
@@ -479,7 +504,7 @@ func (u *UI) handle(cmd ui.Command) error {
 
 func (u *UI) handleHelp(cmd ui.Command) error {
 	return u.s.Do(func(s *StateData) error {
-		s.SetView(ViewHelp, "")
+		s.SetView(ui.ViewHelp, "")
 		return nil
 	})
 }
@@ -665,7 +690,7 @@ func (u *UI) handleSeek(cmd ui.Command) error {
 func (u *UI) handleViewPlaylist(cmd ui.Command) error {
 	pl := cmd.Args()[0].String()
 	return u.s.Do(func(s *StateData) error {
-		s.SetView(ViewPlaylist, pl)
+		s.SetView(ui.ViewPlaylist, pl)
 		s.Playlist = pl
 		return nil
 	})
@@ -673,14 +698,14 @@ func (u *UI) handleViewPlaylist(cmd ui.Command) error {
 
 func (u *UI) handleViewPlaylists(cmd ui.Command) error {
 	return u.s.Do(func(s *StateData) error {
-		s.SetView(ViewPlaylists, "")
+		s.SetView(ui.ViewPlaylists, "")
 		return nil
 	})
 }
 
 func (u *UI) handleViewQueue(cmd ui.Command) error {
 	return u.s.Do(func(s *StateData) error {
-		s.SetView(ViewQueue, "")
+		s.SetView(ui.ViewQueue, "")
 		return nil
 	})
 }
@@ -692,7 +717,7 @@ func (u *UI) handleSearch(cmd ui.Command) error {
 	}
 
 	return u.s.Do(func(s *StateData) error {
-		s.SetView(ViewSearch, q)
+		s.SetView(ui.ViewSearch, q)
 		s.Query = q
 		return nil
 	})
@@ -705,7 +730,7 @@ func (u *UI) handleSearchOwn(cmd ui.Command) error {
 	}
 
 	return u.s.Do(func(s *StateData) error {
-		s.SetView(ViewSearchOwn, q)
+		s.SetView(ui.ViewSearchOwn, q)
 		s.QueryOwn = q
 		return nil
 	})
@@ -713,7 +738,7 @@ func (u *UI) handleSearchOwn(cmd ui.Command) error {
 
 func (u *UI) handleJobs(cmd ui.Command) error {
 	return u.s.Do(func(s *StateData) error {
-		s.SetView(ViewJobs, "")
+		s.SetView(ui.ViewJobs, "")
 		return nil
 	})
 }
@@ -733,7 +758,7 @@ func (u *UI) handleScrape(cmd ui.Command) error {
 	var job *Job
 	u.s.Do(func(s *StateData) error {
 		job = s.jobs.Add(fmt.Sprintf("scrape: %s %s", pl, uri))
-		s.SetView(ViewJobs, "")
+		s.SetView(ui.ViewJobs, "")
 		return nil
 	})
 

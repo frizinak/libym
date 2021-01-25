@@ -32,6 +32,7 @@ func NewSimpleOutput(w io.Writer) *SimpleOutput {
 	return &SimpleOutput{w: w, mode: modeNone}
 }
 
+func (s *SimpleOutput) SetView(view ui.View)  {}
 func (s *SimpleOutput) SetTitle(title string) { s.title = title }
 func (s *SimpleOutput) SetSongs(l []ui.Song) {
 	s.songs = l
@@ -43,9 +44,9 @@ func (s *SimpleOutput) SetText(str string) {
 	s.mode = modeText
 }
 
-func (s *SimpleOutput) AtomicFlush(cb func()) {
+func (s *SimpleOutput) AtomicFlush(cb func(ui.AtomicOutput)) {
 	s.sem.Lock()
-	cb()
+	cb(s)
 	s.flush()
 	s.sem.Unlock()
 }

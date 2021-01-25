@@ -35,12 +35,28 @@ type SimpleUISong struct {
 func NewUISong(s BaseSong, a bool) Song { return SimpleUISong{s, a} }
 func (s SimpleUISong) Active() bool     { return s.active }
 
-type Output interface {
+type View byte
+
+const (
+	ViewQueue View = iota
+	ViewSearch
+	ViewSearchOwn
+	ViewPlaylist
+	ViewPlaylists
+	ViewHelp
+	ViewJobs
+	ViewExternal
+)
+
+type AtomicOutput interface {
+	SetView(View)
 	SetTitle(string)
 	SetSongs([]Song)
 	SetText(string)
-	AtomicFlush(func())
-	Flush()
+}
+
+type Output interface {
+	AtomicFlush(func(AtomicOutput))
 }
 
 type ErrorReporter interface {
