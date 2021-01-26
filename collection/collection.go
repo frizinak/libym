@@ -18,8 +18,9 @@ import (
 )
 
 var (
-	ErrNotExists = errors.New("playlist does not exist")
-	ErrExists    = errors.New("playlist already exists")
+	ErrNotExists     = errors.New("playlist does not exist")
+	ErrSongNotExists = errors.New("song does not exist")
+	ErrExists        = errors.New("playlist already exists")
 )
 
 var nsRE = regexp.MustCompile(`[^a-zA-Z0-9]+`)
@@ -146,7 +147,7 @@ func (c *Collection) Init() error {
 	loading = false
 	close(c.newSong)
 	<-done
-	c.newSong = make(chan Song, c.concurrent)
+	c.newSong = nil
 
 	return nil
 }
@@ -159,6 +160,7 @@ func (c *Collection) Run() {
 	}
 	c.running = true
 	c.sem.Unlock()
+	c.newSong = make(chan Song, c.concurrent)
 
 	g, _ := filepath.Glob(c.globSongs() + ".tmp")
 	for _, p := range g {
@@ -397,6 +399,24 @@ func (c *Collection) Songs() []Song {
 	return n
 }
 
+func (c *Collection) Find(ns, id string) (Song, error) {
+	var song Song
+	c.sem.RLock()
+	for _, p := range c.playlists {
+		s, err := p.Find(ns, id)
+		if err == nil {
+			song = s
+			break
+		}
+	}
+	c.sem.RUnlock()
+	if song == nil {
+		return nil, ErrSongNotExists
+	}
+
+	return song, nil
+}
+
 func (c *Collection) PlaylistSongs(playlist string) ([]Song, error) {
 	p, err := c.get(playlist)
 	if err != nil {
@@ -411,7 +431,9 @@ func (c *Collection) AddSong(playlist string, s Song) error {
 		return err
 	}
 	p.Add(s)
-	c.newSong <- s
+	if c.newSong != nil {
+		c.newSong <- s
+	}
 	c.changed()
 	return nil
 }
@@ -468,7 +490,9 @@ func (c *Collection) QueueSelection(n string, sel []int) error {
 
 func (c *Collection) QueueSong(s Song) {
 	c.q.Add(s)
-	c.newSong <- s
+	if c.newSong != nil {
+		c.newSong <- s
+	}
 	c.changed()
 }
 

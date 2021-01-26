@@ -60,6 +60,22 @@ func NewPlaylist(name string) *Playlist {
 	return &Playlist{name: name, songs: make([]Song, 0)}
 }
 
+func (p *Playlist) Find(ns, id string) (Song, error) {
+	var song Song
+	p.sem.RLock()
+	for _, s := range p.songs {
+		if s.NS() == ns && s.ID() == id {
+			song = s
+			break
+		}
+	}
+	p.sem.RUnlock()
+	if song == nil {
+		return nil, ErrSongNotExists
+	}
+	return song, nil
+}
+
 func (p *Playlist) Search(q string) []Song {
 	l := p.List()
 	qs := strings.Fields(strings.ToLower(q))
