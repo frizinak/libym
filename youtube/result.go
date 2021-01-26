@@ -13,12 +13,14 @@ import (
 	"github.com/frizinak/libym/scraper"
 )
 
-type Results []*Result
-type Result struct {
-	videoID string
-	title   string
-	u       *url.URL
-}
+type (
+	Results []*Result
+	Result  struct {
+		videoID string
+		title   string
+		u       *url.URL
+	}
+)
 
 func NewResult(id, title string) *Result {
 	return &Result{videoID: id, title: title}

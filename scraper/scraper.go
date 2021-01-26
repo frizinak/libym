@@ -129,7 +129,7 @@ func (s *Scraper) ScrapeWithContext(ctx context.Context, uri string, cb Callback
 	jobsQueue := make([]job, 0)
 	done := make(map[string]struct{}, 100)
 
-	var item, total = 0, 1
+	item, total := 0, 1
 	handleResult := func(r result) bool {
 		if err := r.Error(); err != nil {
 			errors = append(errors, err)

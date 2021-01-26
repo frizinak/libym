@@ -43,6 +43,8 @@ type Collection struct {
 
 	newSong chan Song
 	running bool
+
+	problematics *Problematics
 }
 
 func New(l *log.Logger, dir string, queue *Queue, concurrentDownloads int, autoSave bool) *Collection {
@@ -58,6 +60,7 @@ func New(l *log.Logger, dir string, queue *Queue, concurrentDownloads int, autoS
 		needsSave: make(chan struct{}),
 
 		unmarshalers: make(map[string]Unmarshaler),
+		problematics: NewProblematics(),
 	}
 }
 
@@ -77,7 +80,7 @@ func (c *Collection) SongPath(id IDer) string {
 }
 
 func (c *Collection) Init() error {
-	os.MkdirAll(c.dir, 0755)
+	os.MkdirAll(c.dir, 0o755)
 	c.newSong = make(chan Song, c.concurrent)
 	done := make(chan struct{}, 1)
 	go func() {
@@ -175,6 +178,7 @@ func (c *Collection) Run() {
 			}
 
 			if err := y.r.UpdateTitle(); err != nil {
+				c.problematics.Add(y, err)
 				c.l.Println("Title err:", err)
 				continue
 			}
@@ -187,7 +191,7 @@ func (c *Collection) Run() {
 			for w := range workDownloads {
 				do := func() error {
 					file, err := w.File()
-					os.MkdirAll(filepath.Dir(file), 0755)
+					os.MkdirAll(filepath.Dir(file), 0o755)
 					if err != nil {
 						return err
 					}
@@ -212,6 +216,7 @@ func (c *Collection) Run() {
 
 				c.l.Printf("Downloading %s", w.Title())
 				if err := do(); err != nil {
+					c.problematics.Add(w, err)
 					c.l.Println("Download err:", err.Error(), w.Title())
 					continue
 				}
@@ -236,7 +241,7 @@ func (c *Collection) Run() {
 	var mapsem sync.Mutex
 	startedDownload := make(map[string]struct{})
 	addDownload := func(s Song) {
-		id := s.GlobalID()
+		id := GlobalID(s)
 		if s.Local() {
 			mapsem.Lock()
 			delete(startedDownload, id)
@@ -296,6 +301,8 @@ func (c *Collection) changed() {
 func (c *Collection) clean(playlist string) string {
 	return strings.TrimSpace(strings.ToLower(playlist))
 }
+
+func (c *Collection) Problematics() *Problematics { return c.problematics }
 
 func (c *Collection) Create(n string) error {
 	n = c.clean(n)
@@ -359,7 +366,7 @@ func (c *Collection) Search(q string) []Song {
 	uniq := make(map[string]struct{}, len(a))
 	list := make([]Song, 0, len(a))
 	for _, s := range a {
-		gid := s.GlobalID()
+		gid := GlobalID(s)
 		if _, ok := uniq[gid]; !ok {
 			uniq[gid] = struct{}{}
 			list = append(list, s)

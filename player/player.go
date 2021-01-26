@@ -1,6 +1,7 @@
 package player
 
 import (
+	"fmt"
 	"sync"
 	"time"
 
@@ -87,9 +88,22 @@ func (p *Player) ForcePlay() {
 	p.Play()
 }
 
+func (p *Player) songErr(qi *collection.QueueItem, err error) {
+	if qi == nil {
+		p.reporter.Err(err)
+		return
+	}
+
+	p.reporter.Err(fmt.Errorf("[%s-%s] %s: %w", qi.NS(), qi.ID(), qi.Title(), err))
+}
+
 func (p *Player) Play() {
 	p.sem.Lock()
 	defer p.sem.Unlock()
+	p.play()
+}
+
+func (p *Player) play() {
 	if p.Paused() {
 		p.stopped = false
 		p.backend.Pause(false)
@@ -111,15 +125,20 @@ func (p *Player) Play() {
 
 	n, err := p.current.File()
 	if err != nil {
-		p.reporter.Err(err)
+		p.songErr(p.current, err)
+		p.current = nil
+		p.q.Next()
+		p.play()
+		return
 	}
 
 	if !p.current.Local() {
 		u, err := p.current.URL()
 		if err != nil {
+			p.songErr(p.current, err)
 			p.current = nil
 			p.q.Next()
-			p.reporter.Err(err)
+			p.play()
 			return
 		}
 		n = u.String()
@@ -127,8 +146,10 @@ func (p *Player) Play() {
 
 	done, err := p.backend.Play(n)
 	if err != nil {
+		p.songErr(p.current, err)
 		p.current = nil
-		p.reporter.Err(err)
+		p.q.Next()
+		p.play()
 		return
 	}
 
@@ -146,7 +167,6 @@ func (p *Player) Play() {
 			p.Play()
 		}
 	}()
-
 }
 
 func (p *Player) Pause()       { p.backend.Pause(true) }

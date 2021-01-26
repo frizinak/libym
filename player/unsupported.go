@@ -7,8 +7,7 @@ import (
 
 var ErrNotSupported = errors.New("backend is not available, you will need to compile from source")
 
-type UnsupportedBackend struct {
-}
+type UnsupportedBackend struct{}
 
 func (u UnsupportedBackend) Init() error                        { return ErrNotSupported }
 func (u UnsupportedBackend) Close() error                       { return nil }

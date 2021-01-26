@@ -689,7 +689,6 @@ func (u *UI) handleSeek(cmd ui.Command) error {
 		}
 		return generic
 	}()
-
 	if err != nil {
 		return err
 	}
@@ -860,7 +859,6 @@ func (u *UI) handleScrape(cmd ui.Command) error {
 					u.l.Err(fmt.Errorf("%s error: %w", cmd.Cmd(), err))
 				}
 			}).ScrapeWithContext(ctx, uri)
-
 			if err != nil {
 				u.l.Err(fmt.Errorf("%s error: %w", cmd.Cmd(), err))
 				return

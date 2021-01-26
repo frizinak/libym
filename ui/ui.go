@@ -61,7 +61,6 @@ type Output interface {
 
 type ErrorReporter interface {
 	Err(error)
-	Errf(string, ...interface{})
 }
 
 type Printlner interface {
@@ -73,8 +72,7 @@ type LogErrorReporter struct {
 	Printlner
 }
 
-func (l *LogErrorReporter) Err(err error)                        { l.Println("ERR", err) }
-func (l *LogErrorReporter) Errf(format string, v ...interface{}) { l.Printf(format, v...) }
+func (l *LogErrorReporter) Err(err error) { l.Println("ERR", err) }
 
 func NewLogErrorReporter(l Printlner) ErrorReporter {
 	return &LogErrorReporter{l}

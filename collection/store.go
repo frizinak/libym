@@ -53,7 +53,7 @@ func (c *Collection) Load() error {
 		if err != nil {
 			return err
 		}
-		songs[song.GlobalID()] = song
+		songs[GlobalID(song)] = song
 	}
 
 	getSongs := func() ([]Song, error) {
@@ -150,13 +150,13 @@ func (c *Collection) Save() error {
 
 		songs := p.songs
 		for _, s := range songs {
-			index[s.GlobalID()] = s
+			index[GlobalID(s)] = s
 		}
 	}
 
 	q := c.q.slice()
 	for _, s := range q {
-		index[s.GlobalID()] = s
+		index[GlobalID(s)] = s
 	}
 
 	do := func() error {
@@ -179,14 +179,14 @@ func (c *Collection) Save() error {
 			songs := p.songs
 			enc.WriteUint32(uint32(len(songs)))
 			for _, s := range songs {
-				enc.WriteString(s.GlobalID(), 8)
+				enc.WriteString(GlobalID(s), 8)
 			}
 		}
 
 		enc.WriteString(storeQueue, 16)
 		enc.WriteUint32(uint32(len(q)))
 		for _, s := range q {
-			enc.WriteString(s.GlobalID(), 8)
+			enc.WriteString(GlobalID(s), 8)
 		}
 
 		enc.WriteString(eos, 16)

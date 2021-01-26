@@ -21,10 +21,34 @@ type Song interface {
 type IDer interface {
 	NS() string
 	ID() string
-	GlobalID() string
 }
 
-func GlobalID(i IDer) string { return fmt.Sprintf("%s-%s", i.NS(), i.ID()) }
+var (
+	globalIDMapMutex sync.RWMutex
+	globalIDMap      = map[string]map[string]string{}
+)
+
+func GlobalID(i IDer) string {
+	ns, id := i.NS(), i.ID()
+	var gid string
+	globalIDMapMutex.RLock()
+	if _, ok := globalIDMap[ns]; ok {
+		gid = globalIDMap[ns][id]
+	}
+	globalIDMapMutex.RUnlock()
+	if gid != "" {
+		return gid
+	}
+
+	gid = fmt.Sprintf("%s-%s", i.NS(), i.ID())
+	globalIDMapMutex.Lock()
+	if _, ok := globalIDMap[ns]; !ok {
+		globalIDMap[ns] = make(map[string]string, 1)
+	}
+	globalIDMap[ns][id] = gid
+	globalIDMapMutex.Unlock()
+	return gid
+}
 
 type Playlist struct {
 	sem   sync.RWMutex
@@ -68,9 +92,9 @@ func (p *Playlist) List() []Song {
 func (p *Playlist) Add(s Song) {
 	p.sem.Lock()
 	defer p.sem.Unlock()
-	id := s.GlobalID()
+	id := GlobalID(s)
 	for i, song := range p.songs {
-		gid := song.GlobalID()
+		gid := GlobalID(song)
 		if gid == id {
 			p.songs = append(p.songs[:i], p.songs[i+1:]...)
 			p.songs = append(p.songs, song)
@@ -144,7 +168,6 @@ func (p *Playlist) Move(from, to Song) {
 func (p *Playlist) MoveIndex(from []int, to int) {
 	froms := make([]Song, 0, len(from))
 	p.sem.RLock()
-	//if from < 0 || from >= len(p.songs) || to < 0 || to >= len(p.songs) {
 	for _, f := range from {
 		if f < 0 || f >= len(p.songs) {
 			continue

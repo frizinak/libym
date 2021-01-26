@@ -73,7 +73,7 @@ func (m *LibMPV) SetPropertyDouble(n string, v float64) error {
 	return m.mpv.SetProperty(n, mpv.FORMAT_DOUBLE, v)
 }
 
-func (m *LibMPV) SetPropertyString(n string, v string) error {
+func (m *LibMPV) SetPropertyString(n, v string) error {
 	return m.mpv.SetPropertyString(n, v)
 }
 

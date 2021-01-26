@@ -81,8 +81,3 @@ func (s *SimpleOutput) flush() {
 func (s *SimpleOutput) Err(e error) {
 	fmt.Fprintln(s.w, e.Error())
 }
-
-func (s *SimpleOutput) Errf(f string, v ...interface{}) {
-	fmt.Fprintf(s.w, f, v...)
-	fmt.Fprintln(s.w)
-}

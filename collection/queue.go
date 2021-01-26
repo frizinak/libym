@@ -98,7 +98,7 @@ func (q *Queue) add(s Song) {
 func (q *Queue) SetCurrentIndex(i int) {
 	q.sem.RLock()
 	defer q.sem.RUnlock()
-	var c = q.root.next
+	c := q.root.next
 	for n := 0; n < i; n++ {
 		if c.last {
 			c = c.prev
@@ -115,7 +115,7 @@ func (q *Queue) CurrentIndex() int {
 	defer q.sem.RUnlock()
 
 	i := -1
-	var c = q.root.next
+	c := q.root.next
 	for c != nil {
 		if c.first || c.last {
 			return -1

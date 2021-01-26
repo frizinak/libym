@@ -190,7 +190,7 @@ func (m *RPC) SetPropertyDouble(n string, v float64) error {
 	return m.send(newSimpleCommand("set_property", n, v))
 }
 
-func (m *RPC) SetPropertyString(n string, v string) error {
+func (m *RPC) SetPropertyString(n, v string) error {
 	return m.send(newSimpleCommand("set_property", n, v))
 }
 

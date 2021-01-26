@@ -18,12 +18,6 @@ const NSYoutube = "yt"
 
 func (s *YoutubeSong) NS() string { return NSYoutube }
 func (s *YoutubeSong) ID() string { return s.r.ID() }
-func (s *YoutubeSong) GlobalID() string {
-	if s.g == "" {
-		s.g = GlobalID(s)
-	}
-	return s.g
-}
 
 func (s *YoutubeSong) Title() string { return s.r.Title() }
 
