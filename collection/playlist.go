@@ -171,10 +171,6 @@ func (p *Playlist) Move(from, to Song) {
 		return
 	}
 
-	if t > f {
-		t--
-	}
-
 	// delete 'from' song
 	p.songs = append(p.songs[:f], p.songs[f+1:]...)
 	// shift all starting at 'to' song
