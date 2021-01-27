@@ -5,7 +5,8 @@ import (
 	"net/url"
 )
 
-func Search(q string) (Results, error) {
+// Search queries youtube.com for search results matching the given query.
+func Search(q string) ([]*Result, error) {
 	u, err := url.Parse("https://www.youtube.com/results")
 	if err != nil {
 		return nil, err

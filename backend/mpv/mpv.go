@@ -1,3 +1,5 @@
+// Package mpv provides a github.com/frizinak/libym/player.Backend
+// implementation for both libmpv and mpv through rpc.
 package mpv
 
 import (
@@ -7,6 +9,8 @@ import (
 	"time"
 )
 
+// Backend is a generic mpv interface. Applicable to both libmpv and
+// mpv through rpc.
 type Backend interface {
 	Init(chan<- Event) error
 	Close() error
@@ -20,6 +24,7 @@ type Backend interface {
 	Command(...string) error
 }
 
+// EventID represents an mpv event type.
 type EventID byte
 
 const (
@@ -29,14 +34,19 @@ const (
 	EventUnpause
 )
 
+// Event represents an mpv event.
 type Event struct {
 	ID EventID
 }
 
+// New creates a new mpv wrapper that interfaces with any Backend
+// implementations.
 func New(log *log.Logger, backend Backend) *MPV {
 	return &MPV{log: log, b: backend}
 }
 
+// MPV is an abstraction of Backend to provide the same interface to
+// multiple mpv implementations.
 type MPV struct {
 	log *log.Logger
 
@@ -60,6 +70,7 @@ func (m *MPV) l(err error, debug string) {
 	}
 }
 
+// Init initializes the backend and starts listening for events.
 func (m *MPV) Init() error {
 	m.state.dones = make([]chan struct{}, 0)
 	m.state.starts = make(chan chan struct{})

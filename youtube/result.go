@@ -1,3 +1,5 @@
+// Package youtube provides a few utilities around youtube clips.
+
 package youtube
 
 import (
@@ -13,22 +15,28 @@ import (
 	"github.com/frizinak/libym/scraper"
 )
 
-type (
-	Results []*Result
-	Result  struct {
-		videoID string
-		title   string
-		u       *url.URL
-	}
-)
+// Result represents a youtube.com search result, i.e.: a youtube clip.
+type Result struct {
+	videoID string
+	title   string
+	u       *url.URL
+}
 
+// NewResult creates a new youtube result.
+// ID is required and should not be empty for it to be a valid youtube clip.
+// Title is an arbitrary string that will be used as the title,
+// this can be fetched using Title(id string) or Result.UpdateTitle().
 func NewResult(id, title string) *Result {
 	return &Result{videoID: id, title: title}
 }
 
-func (r *Result) ID() string    { return r.videoID }
+// ID returns a the clip id.
+func (r *Result) ID() string { return r.videoID }
+
+// Title returns the title associated with this Result.
 func (r *Result) Title() string { return r.title }
 
+// URL constructs the youtube url for this clip.
 func (r *Result) URL() *url.URL {
 	if r.u != nil {
 		return r.u
@@ -45,6 +53,8 @@ func (r *Result) URL() *url.URL {
 	return u
 }
 
+// DownloadURL asks youtube-dl to create a (temporary) download / stream url
+// of the clip's contents.
 func (r *Result) DownloadURL() (*url.URL, error) {
 	cmd := exec.Command("youtube-dl", "-g", "-f", "bestaudio", r.URL().String())
 	buf := bytes.NewBuffer(nil)
@@ -58,6 +68,7 @@ func (r *Result) DownloadURL() (*url.URL, error) {
 	return url.Parse(strings.TrimSpace(buf.String()))
 }
 
+// UpdateTitle uses Title to update the clips title using its id.
 func (r *Result) UpdateTitle() error {
 	n, err := Title(r.ID())
 	if err != nil {
@@ -72,6 +83,8 @@ func (r *Result) UpdateTitle() error {
 
 var schemeRE = regexp.MustCompile(`^(https?://)|^(//)?`)
 
+// FromURL parses the given url to extract the id and create a youtube
+// result. see NewResult.
 func FromURL(u, title string) (*Result, error) {
 	r := &Result{title: title}
 
@@ -115,29 +128,39 @@ func FromURL(u, title string) (*Result, error) {
 	return nil, fmt.Errorf("'%s' does not seem to be a youtube video url", u)
 }
 
+// Scraper is a wrapper around github.com/frizinak/libym/scraper to extract
+// youtube Results.
 type Scraper struct {
 	s  *scraper.Scraper
 	cb *ScraperCallback
 }
 
+// NewScraper creates a new youtube url scraper with the given scraper.
+// cb will be called with each match after a call to Scrape or
+// ScrapeWithContext.
 func NewScraper(s *scraper.Scraper, cb func(*Result)) *Scraper {
 	return &Scraper{s: s, cb: NewScraperCallback(cb)}
 }
 
+// Scrape calls ScrapeWithContext without context.
 func (s *Scraper) Scrape(uri string) error {
 	return s.ScrapeWithContext(context.Background(), uri)
 }
 
+// Scrape start the scrape of the given url and can be canceled using ctx.
 func (s *Scraper) ScrapeWithContext(ctx context.Context, uri string) error {
 	return s.s.ScrapeWithContext(ctx, uri, s.cb.Callback).Error()
 }
 
+// ScraperCallback is the actual url matcher for Scraper which you probably
+// want to use.
 type ScraperCallback struct {
 	re   *regexp.Regexp
 	uniq map[string]struct{}
 	cb   func(*Result)
 }
 
+// NewScraperCallback creates a new ScraperCallback.
 func NewScraperCallback(cb func(*Result)) *ScraperCallback {
 	return &ScraperCallback{
 		cb:   cb,
@@ -146,6 +169,8 @@ func NewScraperCallback(cb func(*Result)) *ScraperCallback {
 	}
 }
 
+// Callback is the actual function that can be passed to a
+// github.com/frizinak/libym/scraper.Scraper.
 func (s *ScraperCallback) Callback(uri *url.URL, doc *goquery.Document, depth, item, total int) error {
 	html, err := doc.Html()
 	if err != nil {

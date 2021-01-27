@@ -87,7 +87,7 @@ func pageTitle(r io.Reader) (string, error) {
 	return title, nil
 }
 
-func parseSearch(r io.Reader) (Results, error) {
+func parseSearch(r io.Reader) ([]*Result, error) {
 	const (
 		pre  = 0
 		post = 1
@@ -159,8 +159,8 @@ func parseSearch(r io.Reader) (Results, error) {
 	return decodeSearch(buf)
 }
 
-func decodeSearch(r io.Reader) (Results, error) {
-	rs := make(Results, 0)
+func decodeSearch(r io.Reader) ([]*Result, error) {
+	rs := make([]*Result, 0)
 	d, err := jsonquery.Parse(r)
 	if err != nil {
 		return nil, err

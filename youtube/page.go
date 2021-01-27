@@ -5,6 +5,7 @@ import (
 	"net/url"
 )
 
+// Title extracts the page title of the given youtube clip id.
 func Title(id string) (string, error) {
 	u, err := url.Parse("https://www.youtube.com/watch")
 	if err != nil {
