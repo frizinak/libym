@@ -12,6 +12,7 @@ import (
 type Song interface {
 	IDer
 	Title() string
+	UpdateTitle() error
 	Local() bool
 	URL() (*url.URL, error)
 	File() (string, error)

@@ -152,7 +152,7 @@ func (c *Collection) Init() error {
 	return nil
 }
 
-func (c *Collection) Run() {
+func (c *Collection) Run(ratelimitDownloads, ratelimitMeta <-chan struct{}) {
 	c.sem.Lock()
 	if c.running {
 		c.sem.Unlock()
@@ -167,65 +167,85 @@ func (c *Collection) Run() {
 		os.Remove(p)
 	}
 
-	workDownloads := make(chan Song, c.concurrent)
-	workTitles := make(chan Song, c.concurrent)
-	go func() {
-		for w := range workTitles {
-			if w.Title() != "" {
-				continue
-			}
-			y, ok := w.(*YoutubeSong)
-			if !ok {
-				continue
+	var mapsem sync.Mutex
+	startedDownload := make(map[string]struct{})
+
+	taskDownloads := NewSongTasks(
+		c.concurrent,
+		ratelimitDownloads,
+		func(s Song) bool {
+			id := GlobalID(s)
+			if s.Local() {
+				mapsem.Lock()
+				delete(startedDownload, id)
+				mapsem.Unlock()
+				return false
 			}
 
-			if err := y.r.UpdateTitle(); err != nil {
-				c.problematics.Add(y, err)
+			mapsem.Lock()
+			if _, ok := startedDownload[id]; ok {
+				mapsem.Unlock()
+				return false
+			}
+
+			startedDownload[id] = struct{}{}
+			mapsem.Unlock()
+			return true
+		},
+		func(s Song) {
+			do := func() error {
+				file, err := s.File()
+				os.MkdirAll(filepath.Dir(file), 0o755)
+				if err != nil {
+					return err
+				}
+				u, err := s.URL()
+				if err != nil {
+					return err
+				}
+				tmp := TempFile(file)
+				f, err := os.Create(tmp)
+				if err != nil {
+					return err
+				}
+
+				err = DownloadAudio(f, u)
+				f.Close()
+				if err != nil {
+					os.Remove(tmp)
+					return err
+				}
+				return os.Rename(tmp, file)
+			}
+
+			c.l.Printf("Downloading %s:%s %s", s.NS(), s.ID(), s.Title())
+			if err := do(); err != nil {
+				c.problematics.Add(s, err)
+				c.l.Println("Download err:", err.Error(), s.NS(), s.ID(), s.Title())
+				return
+			}
+			c.l.Printf("Downloaded %s:%s %s", s.NS(), s.ID(), s.Title())
+		},
+	)
+	taskMeta := NewSongTasks(
+		c.concurrent,
+		ratelimitMeta,
+		func(s Song) bool {
+			return s.Title() == ""
+		},
+		func(s Song) {
+			if err := s.UpdateTitle(); err != nil {
+				c.problematics.Add(s, err)
 				c.l.Println("Title err:", err)
-				continue
+				return
 			}
+			c.l.Printf("Updated title: %s:%s %s", s.NS(), s.ID(), s.Title())
 			c.changed()
-		}
-	}()
+		},
+	)
 
-	for i := 0; i < c.concurrent; i++ {
-		go func() {
-			for w := range workDownloads {
-				do := func() error {
-					file, err := w.File()
-					os.MkdirAll(filepath.Dir(file), 0o755)
-					if err != nil {
-						return err
-					}
-					u, err := w.URL()
-					if err != nil {
-						return err
-					}
-					tmp := TempFile(file)
-					f, err := os.Create(tmp)
-					if err != nil {
-						return err
-					}
-
-					err = DownloadAudio(f, u)
-					f.Close()
-					if err != nil {
-						os.Remove(tmp)
-						return err
-					}
-					return os.Rename(tmp, file)
-				}
-
-				c.l.Printf("Downloading %s", w.Title())
-				if err := do(); err != nil {
-					c.problematics.Add(w, err)
-					c.l.Println("Download err:", err.Error(), w.Title())
-					continue
-				}
-				c.l.Printf("Downloaded %s", w.Title())
-			}
-		}()
-	}
+	taskDownloads.Start()
+	taskMeta.Start()
 
 	eachSong := func(cb func(s Song)) {
 		for _, s := range c.q.Slice() {
@@ -236,38 +256,10 @@ func (c *Collection) Run() {
 		}
 	}
 
-	addTitle := func(s Song) {
-		workTitles <- s
-	}
-
-	var mapsem sync.Mutex
-	startedDownload := make(map[string]struct{})
-	addDownload := func(s Song) {
-		id := GlobalID(s)
-		if s.Local() {
-			mapsem.Lock()
-			delete(startedDownload, id)
-			mapsem.Unlock()
-			return
-		}
-
-		mapsem.Lock()
-		if _, ok := startedDownload[id]; ok {
-			mapsem.Unlock()
-			return
-		}
-
-		startedDownload[id] = struct{}{}
-		mapsem.Unlock()
-		workDownloads <- s
-	}
-
 	go func() {
 		for s := range c.newSong {
-			go func(s Song) {
-				addTitle(s)
-				addDownload(s)
-			}(s)
+			taskDownloads.Add(s)
+			taskMeta.Add(s)
 		}
 	}()
 
@@ -279,7 +271,7 @@ func (c *Collection) Run() {
 				continue
 			}
 			since = time.Now()
-			eachSong(addTitle)
+			eachSong(taskMeta.Add)
 		}
 	}()
 
@@ -291,7 +283,7 @@ func (c *Collection) Run() {
 				continue
 			}
 			since = time.Now()
-			eachSong(addDownload)
+			eachSong(taskDownloads.Add)
 		}
 	}()
 }
@@ -497,7 +489,7 @@ func (c *Collection) QueueSong(s Song) {
 }
 
 func (c *Collection) FromYoutube(r *youtube.Result) *YoutubeSong {
-	y := &YoutubeSong{r: r}
+	y := &YoutubeSong{Result: r}
 	y.file = c.SongPath(y)
 	return y
 }

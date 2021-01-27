@@ -9,7 +9,7 @@ import (
 )
 
 type YoutubeSong struct {
-	r    *youtube.Result
+	*youtube.Result
 	file string
 	g    string
 }
@@ -17,13 +17,10 @@ type YoutubeSong struct {
 const NSYoutube = "yt"
 
 func (s *YoutubeSong) NS() string { return NSYoutube }
-func (s *YoutubeSong) ID() string { return s.r.ID() }
-
-func (s *YoutubeSong) Title() string { return s.r.Title() }
 
 func (s *YoutubeSong) Marshal(w *binary.Writer) error {
-	w.WriteString(s.r.ID(), 8)
-	w.WriteString(s.r.Title(), 16)
+	w.WriteString(s.ID(), 8)
+	w.WriteString(s.Title(), 16)
 	return w.Err()
 }
 
@@ -37,5 +34,5 @@ func (s *YoutubeSong) File() (string, error) {
 }
 
 func (s *YoutubeSong) URL() (*url.URL, error) {
-	return s.r.DownloadURL()
+	return s.DownloadURL()
 }

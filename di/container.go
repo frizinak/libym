@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	libmpv "github.com/frizinak/libym/backend/mpv/lib"
 	rpcmpv "github.com/frizinak/libym/backend/mpv/rpc"
@@ -37,6 +38,30 @@ type Config struct {
 	CustomOutput ui.Output
 
 	CustomError ui.ErrorReporter
+
+	// Ratelimit ratelimits youtube.com calls by pulling items for the given
+	// channels before each action.
+	// If nil, a default ratelimiter of 1 item every 5 seconds is used for each.
+	RatelimitDownloads <-chan struct{}
+	RatelimitMeta      <-chan struct{}
+}
+
+// MakeRateLimit creates and starts a ratelimiter that can be used in Config.
+func MakeRatelimit(amount int, interval time.Duration) <-chan struct{} {
+	if amount < 1 {
+		amount = 1
+	}
+	ch := make(chan struct{}, amount)
+	go func() {
+		for {
+			for i := 0; i < amount; i++ {
+				ch <- struct{}{}
+			}
+			time.Sleep(interval)
+		}
+	}()
+
+	return ch
 }
 
 type Backend interface {
@@ -64,6 +89,8 @@ type DI struct {
 	collection       *collection.Collection
 	baseUI           *base.UI
 	commandParser    *ui.CommandParser
+	rlDownload       <-chan struct{}
+	rlMeta           <-chan struct{}
 }
 
 func New(c Config) *DI {
@@ -84,6 +111,23 @@ func New(c Config) *DI {
 	}
 
 	return di
+}
+
+func (di *DI) Rates() (<-chan struct{}, <-chan struct{}) {
+	if di.rlDownload == nil {
+		di.rlDownload = di.c.RatelimitDownloads
+		if di.rlDownload == nil {
+			di.rlDownload = MakeRatelimit(1, time.Second*5)
+		}
+	}
+	if di.rlMeta == nil {
+		di.rlMeta = di.c.RatelimitMeta
+		if di.rlMeta == nil {
+			di.rlMeta = MakeRatelimit(1, time.Second*5)
+		}
+	}
+
+	return di.rlDownload, di.rlMeta
 }
 
 func (di *DI) BaseUI() ui.UI {
@@ -112,7 +156,9 @@ func (di *DI) BaseUI() ui.UI {
 		}
 
 		col := di.Collection()
-		col.Run()
+
+		dl, meta := di.Rates()
+		col.Run(dl, meta)
 
 		di.baseUI = base.New(
 			output,
