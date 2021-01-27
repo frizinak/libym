@@ -30,17 +30,23 @@ func NewQueue() *Queue {
 	return q
 }
 
-func (q *Queue) Add(s Song) {
+func (q *Queue) Add(s Song)            { q.AddAt(-1, s) }
+func (q *Queue) AddSlice(songs []Song) { q.AddSliceAt(-1, songs) }
+
+func (q *Queue) AddAt(ix int, s Song) {
 	q.sem.Lock()
 	defer q.sem.Unlock()
-	q.add(s)
+	q.add(ix, s)
 }
 
-func (q *Queue) AddSlice(songs []Song) {
+func (q *Queue) AddSliceAt(ix int, songs []Song) {
 	q.sem.Lock()
 	defer q.sem.Unlock()
 	for _, s := range songs {
-		q.add(s)
+		q.add(ix, s)
+		if ix >= 0 {
+			ix++
+		}
 	}
 }
 
@@ -74,17 +80,17 @@ func (q *Queue) String() string {
 	return strings.Join(l, "\n")
 }
 
-func (q *Queue) add(s Song) {
-	var last func(target, q *QueueItem)
-	last = func(target, q *QueueItem) {
-		if target.last {
+func (q *Queue) add(ix int, s Song) {
+	var last func(int, *QueueItem, *QueueItem)
+	last = func(index int, target, q *QueueItem) {
+		if target.last || index == ix {
 			q.next = target
 			q.prev = target.prev
 			q.next.prev = q
 			q.prev.next = q
 			return
 		}
-		last(target.next, q)
+		last(index+1, target.next, q)
 	}
 
 	item := &QueueItem{Song: s}
@@ -92,7 +98,7 @@ func (q *Queue) add(s Song) {
 		q.current = nil
 	}
 
-	last(q.root, item)
+	last(0, q.root, item)
 }
 
 func (q *Queue) SetCurrentIndex(i int) {
@@ -130,7 +136,7 @@ func (q *Queue) CurrentIndex() int {
 	return i
 }
 
-func (q *Queue) Current() *QueueItem { //(item *QueueItem, first bool, last bool) {
+func (q *Queue) Current() *QueueItem {
 	q.sem.RLock()
 	defer q.sem.RUnlock()
 

@@ -97,6 +97,7 @@ const (
 	CmdSongDelete
 	CmdSeek
 	CmdQueue
+	CmdQueueAfter
 	CmdQueueClear
 	CmdViewQueue
 	CmdViewPlaylist
@@ -131,14 +132,15 @@ var texts = map[CommandType]string{
 	CmdPlaylistDelete: "delete a playlist",
 	CmdSongAdd:        "add a song to a playlist",
 	CmdSongDelete:     "delete a song from a playlist",
-	CmdSeek:           "seek in the current song (relative: +n | -n, absolute: n, where n is h:m:s, m:s or s)",
+	CmdSeek:           "seek in the current song",
 	CmdQueue:          "queue a song from a playlist or a search result",
+	CmdQueueAfter:     "queue a song from a playlist or a search result and insert after a specific index",
 	CmdQueueClear:     "clear queue",
 	CmdViewQueue:      "switch to queue view",
 	CmdViewPlaylist:   "switch to a playlist view",
 	CmdViewPlaylists:  "list all playlists",
 	CmdSearchOwn:      "search for songs across playlists",
-	CmdScrape:         "scrape a url and add all songs to the given playlist: `scrape <playlist> <url...> <depth:1>`",
+	CmdScrape:         "scrape a url and add all songs to the given playlist",
 	CmdJobs:           "list jobs in progress",
 	CmdCancelJob:      "cancel a job",
 }
@@ -229,7 +231,7 @@ type HelpEntry struct {
 	Type CommandType
 	Args ArgAmount
 	Cmds []string
-	Text string
+	Help []string
 }
 
 type CommandParser struct {
@@ -258,7 +260,7 @@ func (c *CommandParser) Parse(input string) []Command {
 	return cmds
 }
 
-func (c *CommandParser) Alias(t CommandType, a ArgAmount, command ...string) {
+func (c *CommandParser) Alias(t CommandType, a ArgAmount, help []string, command ...string) {
 	for _, cmd := range command {
 		if _, ok := c.alias[cmd]; !ok {
 			c.alias[cmd] = make(map[ArgAmount]CommandType)
@@ -269,7 +271,11 @@ func (c *CommandParser) Alias(t CommandType, a ArgAmount, command ...string) {
 		c.alias[cmd][a] = t
 	}
 
-	c.help = append(c.help, HelpEntry{t, a, command, texts[t]})
+	h := make([]string, 1, 1+len(help))
+	h[0] = texts[t]
+	h = append(h, help...)
+
+	c.help = append(c.help, HelpEntry{t, a, command, h})
 }
 
 func (c *CommandParser) Help() Help {

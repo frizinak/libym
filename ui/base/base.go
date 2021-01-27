@@ -444,7 +444,14 @@ func (u *UI) help() string {
 			continue
 		}
 		cmd, arg := cmdStr(h)
-		text = append(text, fmt.Sprintf(format, cmd, arg, h.Text))
+		if len(h.Help) == 0 {
+			text = append(text, fmt.Sprintf(format, cmd, arg, ""))
+			continue
+		}
+		text = append(text, fmt.Sprintf(format, cmd, arg, h.Help[0]))
+		for _, h := range h.Help[1:] {
+			text = append(text, fmt.Sprintf(format, "", "", h))
+		}
 	}
 
 	return strings.Join(text, "\n")
@@ -499,6 +506,8 @@ func (u *UI) handle(cmd ui.Command) error {
 		return u.handleSeek(cmd)
 	case ui.CmdQueue:
 		return u.handleQueue(cmd)
+	case ui.CmdQueueAfter:
+		return u.handleQueueAfter(cmd)
 	case ui.CmdQueueClear:
 		return u.handleQueueClear(cmd)
 	case ui.CmdViewQueue:
@@ -875,23 +884,21 @@ func (u *UI) handleQueueClear(cmd ui.Command) error {
 	return nil
 }
 
-func (u *UI) handleQueue(cmd ui.Command) error {
-	args := cmd.Args()
-
-	str := args[0].String()
+func (u *UI) queue(cmd string, arg ui.Arg, ix int) error {
+	str := arg.String()
 	y, err := u.c.FromYoutubeURL(str, "")
 	if err == nil {
-		u.c.QueueSong(y)
+		u.c.QueueSongAt(ix, y)
 		return nil
 	}
 
-	if err := u.c.Queue(str); err == nil {
+	if err := u.c.QueueAt(ix, str); err == nil {
 		return nil
 	}
 
-	ints, ok := args[0].IntRange()
+	ints, ok := arg.IntRange()
 	if !ok {
-		return fmt.Errorf("%s needs a range of songs", cmd.Cmd())
+		return fmt.Errorf("%s requires a range of songs", cmd)
 	}
 
 	return u.s.Do(func(s *StateData) error {
@@ -904,11 +911,32 @@ func (u *UI) handleQueue(cmd ui.Command) error {
 		}
 
 		for _, s := range songs {
-			u.c.QueueSong(s)
+			u.c.QueueSongAt(ix, s)
 		}
 
 		return nil
 	})
+}
+
+func (u *UI) handleQueue(cmd ui.Command) error {
+	args := cmd.Args()
+	return u.queue(cmd.Cmd(), args[0], -1)
+}
+
+func (u *UI) handleQueueAfter(cmd ui.Command) error {
+	args := cmd.Args()
+
+	if args[0].String() == "next" {
+		ix := u.q.CurrentIndex()
+		return u.queue(cmd.Cmd(), args[1], ix+2)
+	}
+
+	ix, ok := args[0].Int()
+	if !ok || ix < 0 {
+		return fmt.Errorf("%s requires arg 1 to be an index in the queue", cmd.Cmd())
+	}
+
+	return u.queue(cmd.Cmd(), args[1], ix+1)
 }
 
 func (u *UI) fromResults(ints []int, s *StateData) ([]collection.Song, error) {

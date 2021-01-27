@@ -176,37 +176,74 @@ func (di *DI) BaseUI() ui.UI {
 func (di *DI) CommandParser() *ui.CommandParser {
 	if di.commandParser == nil {
 		di.commandParser = ui.NewParser()
-		di.commandParser.Alias(ui.CmdHelp, ui.Zero, "h", "help")
+		di.commandParser.Alias(ui.CmdHelp, ui.Zero, nil, "h", "help")
 
-		di.commandParser.Alias(ui.CmdPauseToggle, ui.Zero, "p", "pause")
+		di.commandParser.Alias(ui.CmdPauseToggle, ui.Zero, nil, "p", "pause")
 
-		di.commandParser.Alias(ui.CmdSetSongIndex, ui.One, "p", "play", "goto")
-		di.commandParser.Alias(ui.CmdNext, ui.Zero, ">", "next", "skip")
-		di.commandParser.Alias(ui.CmdPrev, ui.Zero, "<", "prev", "previous")
-		di.commandParser.Alias(ui.CmdSeek, ui.One, "seek")
+		di.commandParser.Alias(ui.CmdSetSongIndex, ui.One, []string{"e.g.: p 10"}, "p", "play", "goto")
+		di.commandParser.Alias(ui.CmdNext, ui.Zero, nil, ">", "next", "skip")
+		di.commandParser.Alias(ui.CmdPrev, ui.Zero, nil, "<", "prev", "previous")
+		di.commandParser.Alias(
+			ui.CmdSeek,
+			ui.One,
+			[]string{
+				"relative: +n | -n, absolute: n, where n is h:m:s, m:s or s",
+				"e.g.: seek 30:00 => seek to minute 30",
+				"e.g.: seek +05:00 => seek 5 minutes further",
+				"e.g.: seek -30 => seek 30 seconds back",
+			},
+			"seek",
+		)
 
-		di.commandParser.Alias(ui.CmdScrape, ui.Varadic, "scrape")
-		di.commandParser.Alias(ui.CmdJobs, ui.Zero, "jobs")
-		di.commandParser.Alias(ui.CmdCancelJob, ui.One, "cancel")
+		di.commandParser.Alias(
+			ui.CmdScrape,
+			ui.Varadic,
+			[]string{
+				"scrape <playlist> <url...> <depth:1>",
+				"e.g.: scrape hnbb https://www.hotnewbeebop.com/articles/reviews 2",
+				"e.g.: scrape hnbb https://www.shmootube.com https://yougoob.com",
+			},
+			"scrape",
+		)
 
-		di.commandParser.Alias(ui.CmdPlaylistAdd, ui.One, "create-playlist")
-		di.commandParser.Alias(ui.CmdPlaylistDelete, ui.One, "remove-playlist")
-		di.commandParser.Alias(ui.CmdSongAdd, ui.Two, "a", "add")
-		di.commandParser.Alias(ui.CmdSongDelete, ui.One, "del", "delete")
+		di.commandParser.Alias(ui.CmdJobs, ui.Zero, nil, "jobs")
+		di.commandParser.Alias(ui.CmdCancelJob, ui.One, nil, "cancel")
 
-		di.commandParser.Alias(ui.CmdVolume, ui.One, "v", "volume")
+		di.commandParser.Alias(ui.CmdPlaylistAdd, ui.One, nil, "create-playlist")
+		di.commandParser.Alias(ui.CmdPlaylistDelete, ui.One, nil, "remove-playlist")
+		di.commandParser.Alias(
+			ui.CmdSongAdd,
+			ui.Two,
+			[]string{"e.g.: add hnbb 5,30-42"},
+			"a",
+			"add",
+		)
+		di.commandParser.Alias(ui.CmdSongDelete, ui.One, []string{"see add"}, "del", "delete")
 
-		di.commandParser.Alias(ui.CmdSearch, ui.Varadic, "s", "search")
-		di.commandParser.Alias(ui.CmdSearchOwn, ui.Varadic, "/", "find")
+		di.commandParser.Alias(ui.CmdVolume, ui.One, nil, "v", "volume")
 
-		di.commandParser.Alias(ui.CmdQueueClear, ui.Zero, "clear")
-		di.commandParser.Alias(ui.CmdQueue, ui.One, "q", "queue")
-		di.commandParser.Alias(ui.CmdViewQueue, ui.Zero, "q", "queue")
+		di.commandParser.Alias(ui.CmdSearch, ui.Varadic, nil, "s", "search")
+		di.commandParser.Alias(ui.CmdSearchOwn, ui.Varadic, nil, "/", "find")
 
-		di.commandParser.Alias(ui.CmdMove, ui.Two, "mv", "move")
+		di.commandParser.Alias(ui.CmdQueueClear, ui.Zero, nil, "clear")
+		di.commandParser.Alias(ui.CmdQueue, ui.One, []string{"see add"}, "q", "queue")
+		di.commandParser.Alias(
+			ui.CmdQueueAfter,
+			ui.Two,
+			[]string{
+				"e.g.: q 5 6,8-10 => queue songs 6,8,9,10 after song at index 5",
+				"as a special case 'next' can be used to insert songs after the current song",
+				"e.g.: add next 6,8-10",
+			},
+			"q",
+			"queue",
+		)
+		di.commandParser.Alias(ui.CmdViewQueue, ui.Zero, nil, "q", "queue")
 
-		di.commandParser.Alias(ui.CmdViewPlaylist, ui.One, "ls", "playlist")
-		di.commandParser.Alias(ui.CmdViewPlaylists, 0, "ls", "playlists")
+		di.commandParser.Alias(ui.CmdMove, ui.Two, nil, "mv", "move")
+
+		di.commandParser.Alias(ui.CmdViewPlaylist, ui.One, nil, "ls", "playlist")
+		di.commandParser.Alias(ui.CmdViewPlaylists, ui.Zero, nil, "ls", "playlists")
 	}
 
 	return di.commandParser
