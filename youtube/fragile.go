@@ -2,7 +2,7 @@ package youtube
 
 import (
 	"bufio"
-	"bytes"
+	"encoding/json"
 	"errors"
 	"html"
 	"io"
@@ -10,7 +10,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/antchfx/jsonquery"
+	"github.com/frizinak/libym/fuzzymap"
 )
 
 type reRuneReader struct {
@@ -87,102 +87,74 @@ func pageTitle(r io.Reader) (string, error) {
 	return title, nil
 }
 
-func parseSearch(r io.Reader) ([]*Result, error) {
-	const (
-		pre  = 0
-		post = 1
-	)
-
-	opener := ""
-	closer := ""
-	opened := 0
-	onceOpened := false
-
-	matching := map[string]string{
-		"{": "}",
-		"[": "]",
-	}
-
-	s := bufio.NewScanner(r)
-	s.Split(bufio.ScanRunes)
-
-	ytInitial := "ytInitialData ="
+func parseYTInitialData(r io.Reader) (fuzzymap.M, io.Reader, error) {
+	ytInitial := []rune("ytInitialData =")
 	ytInitialPos := 0
 
-	buf := bytes.NewBuffer(nil)
+	rr := bufio.NewReader(r)
+	for {
+		rn, _, err := rr.ReadRune()
+		if err != nil {
+			return nil, r, err
+		}
 
-	status := pre
-
-	for s.Scan() {
-		c := s.Text()
-
-		switch status {
-		case pre:
-			if ytInitial[ytInitialPos] == c[0] {
-				ytInitialPos++
-				if ytInitialPos >= len(ytInitial) {
-					status = post
-				}
-				continue
+		if ytInitial[ytInitialPos] == rn {
+			ytInitialPos++
+			if ytInitialPos >= len(ytInitial) {
+				break
 			}
-			ytInitialPos = 0
 			continue
-		case post:
-			if opener == "" {
-				if n, ok := matching[c]; ok {
-					opener = c
-					closer = n
-				}
-			}
-
-			if c == opener {
-				onceOpened = true
-				opened++
-			} else if c == closer {
-				opened--
-			}
 		}
-
-		if onceOpened {
-			buf.WriteString(c)
-		}
-
-		if onceOpened && opened == 0 {
-			break
-		}
+		ytInitialPos = 0
 	}
 
-	if err := s.Err(); err != nil {
-		return nil, err
+	m := make(map[string]interface{})
+	dec := json.NewDecoder(rr)
+	err := dec.Decode(&m)
+	nr := io.MultiReader(dec.Buffered(), r)
+	if err != nil {
+		return nil, nr, err
 	}
 
-	return decodeSearch(buf)
+	return fuzzymap.New(m), nr, err
 }
 
-func decodeSearch(r io.Reader) ([]*Result, error) {
-	rs := make([]*Result, 0)
-	d, err := jsonquery.Parse(r)
+func parseSearch(r io.Reader) ([]*Result, io.Reader, error) {
+	m, nr, err := parseYTInitialData(r)
 	if err != nil {
-		return nil, err
+		return nil, nr, err
 	}
 
-	els := jsonquery.Find(d, "//videoId")
+	res, err := decodeSearch(m)
+	return res, nr, err
+}
+
+func decodeSearch(m fuzzymap.M) ([]*Result, error) {
+	rs := make([]*Result, 0)
+	els := m.Filter("videoId")
 	for _, e := range els {
-		if e.FirstChild == nil || e.FirstChild.Type != jsonquery.TextNode {
+		if e.Parent == nil {
 			continue
 		}
-		t := jsonquery.FindOne(e.Parent, "//title//text")
-		if t == nil || t.FirstChild == nil || t.FirstChild.Type != jsonquery.TextNode {
+
+		vid, ok := e.Value.(string)
+		if !ok || len(e.Children) != 0 {
+			continue
+		}
+
+		titles := e.Parent.Children.Filter("title", "text")
+		if len(titles) != 1 {
+			continue
+		}
+		title, ok := titles[0].Value.(string)
+		if !ok || len(titles[0].Children) != 0 {
 			continue
 		}
 
 		hasLiveBadge := false
-		badgeStyles := jsonquery.Find(e.Parent, "//badges//style")
+		badgeStyles := e.Parent.Children.Filter("badges", "style")
 		for _, bs := range badgeStyles {
-			if bs.FirstChild == nil {
-				continue
-			}
-			if strings.Contains(bs.FirstChild.Data, "_LIVE_") {
+			if style, ok := bs.Value.(string); ok && strings.Contains(style, "_LIVE") {
 				hasLiveBadge = true
 				break
 			}
@@ -194,7 +166,7 @@ func decodeSearch(r io.Reader) ([]*Result, error) {
 
 		rs = append(
 			rs,
-			NewResult(e.FirstChild.Data, t.FirstChild.Data),
+			NewResult(vid, title),
 		)
 	}
 

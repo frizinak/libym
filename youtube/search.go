@@ -27,5 +27,6 @@ func Search(q string) ([]*Result, error) {
 		return nil, err
 	}
 	defer res.Body.Close()
-	return parseSearch(res.Body)
+	results, _, err := parseSearch(res.Body)
+	return results, err
 }
