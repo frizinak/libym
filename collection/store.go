@@ -96,7 +96,7 @@ func (c *Collection) Load() error {
 				return err
 			}
 			for _, s := range l {
-				c.QueueSong(s)
+				c.QueueSong(-1, s)
 			}
 			continue
 		}

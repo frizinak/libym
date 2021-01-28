@@ -888,11 +888,11 @@ func (u *UI) queue(cmd string, arg ui.Arg, ix int) error {
 	str := arg.String()
 	y, err := u.c.FromYoutubeURL(str, "")
 	if err == nil {
-		u.c.QueueSongAt(ix, y)
+		u.c.QueueSong(ix, y)
 		return nil
 	}
 
-	if err := u.c.QueueAt(ix, str); err == nil {
+	if err := u.c.Queue(ix, str); err == nil {
 		return nil
 	}
 
@@ -911,7 +911,10 @@ func (u *UI) queue(cmd string, arg ui.Arg, ix int) error {
 		}
 
 		for _, s := range songs {
-			u.c.QueueSongAt(ix, s)
+			u.c.QueueSong(ix, s)
+			if ix >= 0 {
+				ix++
+			}
 		}
 
 		return nil

@@ -30,16 +30,13 @@ func NewQueue() *Queue {
 	return q
 }
 
-func (q *Queue) Add(s Song)            { q.AddAt(-1, s) }
-func (q *Queue) AddSlice(songs []Song) { q.AddSliceAt(-1, songs) }
-
-func (q *Queue) AddAt(ix int, s Song) {
+func (q *Queue) Add(ix int, s Song) {
 	q.sem.Lock()
 	defer q.sem.Unlock()
 	q.add(ix, s)
 }
 
-func (q *Queue) AddSliceAt(ix int, songs []Song) {
+func (q *Queue) AddSlice(ix int, songs []Song) {
 	q.sem.Lock()
 	defer q.sem.Unlock()
 	for _, s := range songs {

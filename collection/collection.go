@@ -460,38 +460,22 @@ func (c *Collection) MoveSongIndex(playlist string, from []int, to int) error {
 	return nil
 }
 
-func (c *Collection) Queue(n string) error { return c.QueueAt(-1, n) }
-func (c *Collection) QueueSong(s Song)     { c.QueueSongAt(-1, s) }
-func (c *Collection) QueueSelection(n string, sel []int) error {
-	return c.QueueSelectionAt(-1, n, sel)
-}
-
-func (c *Collection) QueueAt(ix int, n string) error {
+func (c *Collection) Queue(ix int, n string) error {
 	p, err := c.get(n)
 	if err != nil {
 		return err
 	}
-	p.QueueAt(c.q, ix)
+	p.Queue(c.q, ix)
 	c.changed()
 	return nil
 }
 
-func (c *Collection) QueueSongAt(ix int, s Song) {
-	c.q.AddAt(ix, s)
+func (c *Collection) QueueSong(ix int, s Song) {
+	c.q.Add(ix, s)
 	if c.newSong != nil {
 		c.newSong <- s
 	}
 	c.changed()
-}
-
-func (c *Collection) QueueSelectionAt(ix int, n string, sel []int) error {
-	p, err := c.get(n)
-	if err != nil {
-		return err
-	}
-	p.QueueSelectionAt(c.q, ix, sel)
-	c.changed()
-	return nil
 }
 
 func (c *Collection) FromYoutube(r *youtube.Result) *YoutubeSong {

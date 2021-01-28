@@ -200,28 +200,9 @@ func (p *Playlist) MoveIndex(from []int, to int) {
 	}
 }
 
-func (p *Playlist) Queue(q *Queue)                     { p.QueueAt(q, -1) }
-func (p *Playlist) QueueSelection(q *Queue, sel []int) { p.QueueSelectionAt(q, -1, sel) }
-
-func (p *Playlist) QueueAt(q *Queue, ix int) {
+func (p *Playlist) Queue(q *Queue, ix int) {
 	p.sem.RLock()
 	defer p.sem.RUnlock()
 
-	q.AddSliceAt(ix, p.songs)
-}
-
-func (p *Playlist) QueueSelectionAt(q *Queue, ix int, sel []int) {
-	songs := make([]Song, 0, len(sel))
-	p.sem.RLock()
-	defer p.sem.RUnlock()
-
-	for _, i := range sel {
-		if i < 0 || i >= len(p.songs) {
-			continue
-		}
-
-		songs = append(songs, p.songs[i])
-	}
-
-	q.AddSliceAt(ix, songs)
+	q.AddSlice(ix, p.songs)
 }
