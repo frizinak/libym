@@ -161,8 +161,8 @@ type ScraperCallback struct {
 func NewScraperCallback(cb func(*Result)) *ScraperCallback {
 	return &ScraperCallback{
 		cb:   cb,
-		re:   regexp.MustCompile(`https?://[^'"]*youtu[^'"]*`),
-		uniq: make(map[string]struct{}, 0),
+		re:   regexp.MustCompile(`(?i)https?://(?:m\.|www\.)?youtu[a-z0-9\-_\./]+`),
+		uniq: make(map[string]struct{}),
 	}
 }
 
