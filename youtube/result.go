@@ -42,13 +42,10 @@ func (r *Result) URL() *url.URL {
 		return r.u
 	}
 
-	u, err := url.Parse("https://www.youtube.com/watch")
+	u, err := Page(r.videoID)
 	if err != nil {
 		panic(err)
 	}
-	qry := u.Query()
-	qry.Set("v", r.videoID)
-	u.RawQuery = qry.Encode()
 	r.u = u
 	return u
 }

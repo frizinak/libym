@@ -17,6 +17,7 @@ type Song interface {
 	URL() (*url.URL, error)
 	File() (string, error)
 	Marshal(*binary.Writer) error
+	PageURL() (*url.URL, error)
 }
 
 type IDer interface {

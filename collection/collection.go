@@ -94,13 +94,7 @@ func (c *Collection) Init() error {
 	c.RegisterUnmarshaler(
 		NSYoutube,
 		func(dec *binary.Reader) (Song, error) {
-			id := dec.ReadString(8)
-			title := dec.ReadString(16)
-			if err := dec.Err(); err != nil {
-				return nil, err
-			}
-			s := c.FromYoutube(youtube.NewResult(id, title))
-			return s, nil
+			return YoutubeSongUnmarshal(c, dec)
 		},
 	)
 
