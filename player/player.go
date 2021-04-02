@@ -70,6 +70,8 @@ type Player struct {
 	reporter ErrorReporter
 	q        *collection.Queue
 
+	posFile string
+
 	current *collection.QueueItem
 
 	seq     byte
@@ -77,11 +79,12 @@ type Player struct {
 }
 
 // NewPlayer constructs a new player.
-func NewPlayer(backend Backend, reporter ErrorReporter, queue *collection.Queue) *Player {
+func NewPlayer(backend Backend, reporter ErrorReporter, queue *collection.Queue, posFile string) *Player {
 	return &Player{
 		backend:  backend,
 		q:        queue,
 		reporter: reporter,
+		posFile:  posFile,
 	}
 }
 

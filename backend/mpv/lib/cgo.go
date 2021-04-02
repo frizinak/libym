@@ -31,10 +31,11 @@ func (m *LibMPV) Init(events chan<- wrap.Event) error {
 	}
 
 	ev := map[mpv.EventId]wrap.EventID{
-		mpv.EVENT_END_FILE:   wrap.EventEndFile,
-		mpv.EVENT_START_FILE: wrap.EventStartFile,
-		mpv.EVENT_PAUSE:      wrap.EventPause,
-		mpv.EVENT_UNPAUSE:    wrap.EventUnpause,
+		mpv.EVENT_END_FILE: wrap.EventEndFile,
+		// mpv.EVENT_START_FILE: wrap.EventStartFile,
+		mpv.EVENT_FILE_LOADED: wrap.EventStartFile,
+		mpv.EVENT_PAUSE:       wrap.EventPause,
+		mpv.EVENT_UNPAUSE:     wrap.EventUnpause,
 	}
 
 	go func() {

@@ -332,7 +332,8 @@ func (di *DI) Player() *player.Player {
 			err = ui.NewLogErrorReporter(log.New(w, "PLAYER ERR: ", 0))
 		}
 
-		di.player = player.NewPlayer(di.Backend(), err, di.Queue())
+		store := filepath.Join(di.Store(), "player-position")
+		di.player = player.NewPlayer(di.Backend(), err, di.Queue(), store)
 	}
 	return di.player
 }
