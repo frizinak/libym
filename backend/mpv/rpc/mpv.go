@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -64,6 +66,7 @@ type RPC struct {
 }
 
 func (m *RPC) Init(events chan<- mpv.Event) error {
+	os.MkdirAll(filepath.Dir(m.ipc), 0755)
 	m.command = exec.Command(
 		m.cmd,
 		"--no-video",

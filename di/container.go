@@ -26,6 +26,9 @@ type Config struct {
 	// Defaults to ~/.cache/ym
 	StorePath string
 
+	// Default to ~/.cache/ym/mpv-ipc.sock if not compiled with libmpv
+	SocketPath string
+
 	// Defaults to os.Stderr
 	BackendLogger io.Writer
 
@@ -105,7 +108,10 @@ func New(c Config) *DI {
 		{
 			Name: "mpv",
 			Build: func(di *DI, log *log.Logger) (Backend, error) {
-				return rpcmpv.New(log, filepath.Join(di.Store(), "mpv-ipc.sock")), nil
+				if c.SocketPath == "" {
+					return rpcmpv.New(log, filepath.Join(di.Store(), "mpv-ipc.sock")), nil
+				}
+				return rpcmpv.New(log, c.SocketPath), nil
 			},
 		},
 	}
