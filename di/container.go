@@ -232,6 +232,7 @@ func (di *DI) CommandParser() *ui.CommandParser {
 		di.commandParser.Alias(ui.CmdSearchOwn, ui.Varadic, nil, "/", "find")
 
 		di.commandParser.Alias(ui.CmdQueueClear, ui.Zero, nil, "clear")
+		di.commandParser.Alias(ui.CmdQueueShuffle, ui.Varadic, nil, "shuf", "shuffle")
 		di.commandParser.Alias(ui.CmdQueue, ui.One, []string{"see add"}, "q", "queue")
 		di.commandParser.Alias(
 			ui.CmdQueueAfter,

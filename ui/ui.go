@@ -99,6 +99,7 @@ const (
 	CmdQueue
 	CmdQueueAfter
 	CmdQueueClear
+	CmdQueueShuffle
 	CmdViewQueue
 	CmdViewPlaylist
 	CmdViewPlaylists
@@ -136,6 +137,7 @@ var texts = map[CommandType]string{
 	CmdQueue:          "queue a song from a playlist or a search result",
 	CmdQueueAfter:     "queue a song from a playlist or a search result and insert after a specific index",
 	CmdQueueClear:     "clear queue",
+	CmdQueueShuffle:   "shuffle entire queue or specify a start and end index of queue items to shuffle",
 	CmdViewQueue:      "switch to queue view",
 	CmdViewPlaylist:   "switch to a playlist view",
 	CmdViewPlaylists:  "list all playlists",

@@ -510,6 +510,8 @@ func (u *UI) handle(cmd ui.Command) error {
 		return u.handleQueueAfter(cmd)
 	case ui.CmdQueueClear:
 		return u.handleQueueClear(cmd)
+	case ui.CmdQueueShuffle:
+		return u.handleQueueShuffle(cmd)
 	case ui.CmdViewQueue:
 		return u.handleViewQueue(cmd)
 	case ui.CmdViewPlaylist:
@@ -875,6 +877,35 @@ func (u *UI) handleScrape(cmd ui.Command) error {
 		}(uri)
 	}
 
+	return nil
+}
+
+func (u *UI) handleQueueShuffle(cmd ui.Command) error {
+	args := cmd.ArgAmount()
+	if args > 2 {
+		return fmt.Errorf("%s takes no arguments or a start and end index of queue items", cmd.Cmd())
+	}
+	if args == 0 {
+		u.q.Shuffle()
+		return nil
+	}
+
+	rng, ok := cmd.Args().Ints()
+	if !ok || len(rng) < 2 {
+		return fmt.Errorf("%s requires a range of queue items", cmd.Cmd())
+	}
+
+	if len(rng) != 2 {
+		for i := 0; i < len(rng)-1; i++ {
+			if rng[i]+1 != rng[i+1] {
+				return fmt.Errorf("%s requires a continuous range of indexes", cmd.Cmd())
+			}
+		}
+		rng[1] = rng[len(rng)-1]
+		rng = rng[:2]
+	}
+
+	u.q.ShuffleRange(rng[0]-1, rng[1]-1)
 	return nil
 }
 
