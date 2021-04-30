@@ -131,6 +131,10 @@ func (s *StateData) SetView(v ui.View, title string) {
 	s.QueryOfOwnResult, s.QueryOfResult = "", ""
 }
 
+type canError struct{ msg string }
+
+func (c *canError) Error() string { return c.msg }
+
 func (s *StateData) SetCan(what ...Can) {
 	s.can = make(map[Can]struct{})
 	for _, w := range what {
@@ -626,10 +630,14 @@ func (u *UI) handleSongAdd(cmd ui.Command) error {
 	}
 
 	ints, ok := args[1].IntRange()
-	if ok {
+	if ok || args[1].String() == "all" {
 		return u.s.Do(func(s *StateData) error {
 			songs, err := u.fromResults(ints, s)
 			if err != nil {
+				var can *canError
+				if !errors.As(err, &can) {
+					return err
+				}
 				songs, err = u.fromSongs(ints, s)
 			}
 			if err != nil {
@@ -885,7 +893,7 @@ func (u *UI) handleQueueShuffle(cmd ui.Command) error {
 	if args > 2 {
 		return fmt.Errorf("%s takes no arguments or a start and end index of queue items", cmd.Cmd())
 	}
-	if args == 0 {
+	if args == 0 || cmd.Args().String() == "all" {
 		u.q.Shuffle()
 		return nil
 	}
@@ -928,13 +936,17 @@ func (u *UI) queue(cmd string, arg ui.Arg, ix int) error {
 	}
 
 	ints, ok := arg.IntRange()
-	if !ok {
+	if !ok && arg.String() != "all" {
 		return fmt.Errorf("%s requires a range of songs", cmd)
 	}
 
 	return u.s.Do(func(s *StateData) error {
 		songs, err := u.fromResults(ints, s)
 		if err != nil {
+			var can *canError
+			if !errors.As(err, &can) {
+				return err
+			}
 			songs, err = u.fromSongs(ints, s)
 		}
 		if err != nil {
@@ -975,7 +987,15 @@ func (u *UI) handleQueueAfter(cmd ui.Command) error {
 
 func (u *UI) fromResults(ints []int, s *StateData) ([]collection.Song, error) {
 	if !s.Can(CanSearchResult) {
-		return nil, errors.New("can only be used from a search result view")
+		return nil, &canError{"can only be used from a search result view"}
+	}
+
+	if len(ints) == 0 {
+		songs := make([]collection.Song, 0, len(s.Search))
+		for i := range s.Search {
+			songs = append(songs, u.c.FromYoutube(s.Search[i]))
+		}
+		return songs, nil
 	}
 
 	songs := make([]collection.Song, 0, len(ints))
@@ -992,7 +1012,15 @@ func (u *UI) fromResults(ints []int, s *StateData) ([]collection.Song, error) {
 
 func (u *UI) fromSongs(ints []int, s *StateData) ([]collection.Song, error) {
 	if !s.Can(CanSong) {
-		return nil, errors.New("can only be used from a song view")
+		return nil, &canError{"can only be used from a song view"}
+	}
+
+	if len(ints) == 0 {
+		songs := make([]collection.Song, 0, len(s.Songs))
+		for i := range s.Songs {
+			songs = append(songs, s.Songs[i])
+		}
+		return songs, nil
 	}
 
 	songs := make([]collection.Song, 0, len(ints))

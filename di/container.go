@@ -220,7 +220,10 @@ func (di *DI) CommandParser() *ui.CommandParser {
 		di.commandParser.Alias(
 			ui.CmdSongAdd,
 			ui.Two,
-			[]string{"e.g.: add hnbb 5,30-42"},
+			[]string{
+				"e.g.: add hnbb 5,30-42",
+				"e.g.: add hnbb all",
+			},
 			"a",
 			"add",
 		)
