@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/url"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -13,6 +15,7 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/frizinak/libym/acoustid"
 	"github.com/frizinak/libym/collection"
 	"github.com/frizinak/libym/player"
 	"github.com/frizinak/libym/scraper"
@@ -29,6 +32,7 @@ var viewNames = map[ui.View]string{
 	ui.ViewHelp:      "help",
 	ui.ViewJobs:      "jobs",
 	ui.ViewExternal:  "external",
+	ui.ViewRename:    "rename",
 }
 
 type Can byte
@@ -101,6 +105,12 @@ func (j *Jobs) List() []*Job {
 	return l
 }
 
+type Rename struct {
+	Song collection.Song
+	Name string
+	Sec  string
+}
+
 type StateData struct {
 	view  ui.View
 	title string
@@ -119,7 +129,48 @@ type StateData struct {
 	External []collection.Song
 	Search   []*youtube.Result
 
+	Rename *Rename
+
+	confirm struct {
+		sec  string
+		cb   func()
+		view ui.View
+	}
+
 	can map[Can]struct{}
+}
+
+const chars = "abcdefghijklmnopqrstuvwxyz"
+
+func (s *StateData) Confirm(sec string) error {
+	if s.confirm.sec == "" {
+		return errors.New("nothing to confirm")
+	}
+	if sec != s.confirm.sec {
+		return errors.New("bad confirm")
+	}
+
+	s.confirm.cb()
+	s.confirm.sec = ""
+	s.confirm.cb = nil
+	s.SetView(s.confirm.view, "")
+
+	return nil
+}
+
+func (s *StateData) SetConfirm(view ui.View, cb func()) (sec string) {
+	var c [8]rune
+	for i := range c {
+		r := rand.Intn(len(chars))
+		c[i] = rune(chars[r])
+	}
+
+	sec = string(c[:])
+	s.confirm.sec = sec
+	s.confirm.cb = cb
+	s.confirm.view = view
+
+	return
 }
 
 func (s *StateData) View() ui.View { return s.view }
@@ -178,11 +229,12 @@ func (s *State) Do(cb func(*StateData) error) error {
 type UI struct {
 	ui.Output
 
-	l      ui.ErrorReporter
-	parser ui.Parser
-	p      *player.Player
-	c      *collection.Collection
-	q      *collection.Queue
+	l        ui.ErrorReporter
+	parser   ui.Parser
+	p        *player.Player
+	c        *collection.Collection
+	q        *collection.Queue
+	acoustid *acoustid.Client
 
 	s *State
 }
@@ -194,15 +246,17 @@ func New(
 	p *player.Player,
 	c *collection.Collection,
 	q *collection.Queue,
+	acoustid *acoustid.Client,
 ) *UI {
 	return &UI{
-		Output: output,
-		l:      log,
-		s:      NewState(),
-		parser: parser,
-		p:      p,
-		c:      c,
-		q:      q,
+		Output:   output,
+		l:        log,
+		s:        NewState(),
+		parser:   parser,
+		p:        p,
+		c:        c,
+		q:        q,
+		acoustid: acoustid,
 	}
 }
 
@@ -257,6 +311,8 @@ func (u *UI) refresh() error {
 			return u.viewJobs(v, s)
 		case ui.ViewExternal:
 			return u.viewExternal(v, s)
+		case ui.ViewRename:
+			return u.viewRename(v, s)
 		}
 
 		return nil
@@ -311,6 +367,25 @@ func (u *UI) viewExternal(view ui.View, s *StateData) error {
 		a.SetView(view)
 		a.SetTitle(s.Title())
 		a.SetSongs(songs)
+	})
+
+	return nil
+}
+
+func (u *UI) viewRename(view ui.View, s *StateData) error {
+	u.AtomicFlush(func(a ui.AtomicOutput) {
+		a.SetView(view)
+		a.SetTitle(s.Title())
+		if s.Rename == nil {
+			return
+		}
+
+		a.SetText(fmt.Sprintf(
+			"To rename\n'%s' to\n'%s'\nconfirm with '%s'",
+			s.Rename.Song.Title(),
+			s.Rename.Name,
+			s.Rename.Sec,
+		))
 	})
 
 	return nil
@@ -530,6 +605,10 @@ func (u *UI) handle(cmd ui.Command) error {
 		return u.handleJobs(cmd)
 	case ui.CmdCancelJob:
 		return u.handleCancelJobs(cmd)
+	case ui.CmdMeta:
+		return u.handleMeta(cmd)
+	case ui.CmdConfirm:
+		return u.handleConfirm(cmd)
 	default:
 		return fmt.Errorf("%s is not implemented", cmd.Cmd())
 	}
@@ -539,6 +618,13 @@ func (u *UI) handleHelp(cmd ui.Command) error {
 	return u.s.Do(func(s *StateData) error {
 		s.SetView(ui.ViewHelp, "")
 		return nil
+	})
+}
+
+func (u *UI) handleConfirm(cmd ui.Command) error {
+	arg := cmd.Args()[0].String()
+	return u.s.Do(func(s *StateData) error {
+		return s.Confirm(arg)
 	})
 }
 
@@ -799,6 +885,94 @@ func (u *UI) handleCancelJobs(cmd ui.Command) error {
 		for _, c := range cancel {
 			c.Cancel()
 		}
+
+		return nil
+	})
+}
+
+func (u *UI) handleMeta(cmd ui.Command) error {
+	n, ok := cmd.Args()[0].Int()
+	if !ok {
+		return fmt.Errorf("%s requires a single song", cmd.Cmd())
+	}
+	if u.acoustid == nil {
+		return fmt.Errorf("%s is not available", cmd.Cmd())
+	}
+
+	oview := ui.ViewQueue
+	return u.s.Do(func(s *StateData) error {
+		oview = s.View()
+
+		songs, err := u.fromSongs([]int{n}, s)
+		if err != nil {
+			return err
+		}
+
+		song := songs[0]
+		if !songs[0].Local() {
+			return fmt.Errorf("song has not been downloaded yet, fingerprinting not possible")
+		}
+		file, err := song.File()
+		if err != nil {
+			return err
+		}
+
+		ctx, cancel := context.WithCancel(context.Background())
+		job := s.jobs.Add(fmt.Sprintf("fingerprint: %s-%s", song.NS(), song.ID()))
+		job.SetCancel(cancel)
+		s.SetView(ui.ViewJobs, "")
+
+		go func() {
+			defer u.s.Do(func(s *StateData) error {
+				s.jobs.Remove(job.ID())
+				return nil
+			})
+
+			f, err := os.Open(file)
+			job.Progress = 0.1
+			if err != nil {
+				u.l.Err(err)
+				return
+			}
+			defer f.Close()
+
+			fp, dur, err := u.acoustid.Fingerprint(ctx, f)
+			job.Progress = 0.5
+			if err != nil {
+				u.l.Err(err)
+				return
+			}
+
+			result, err := u.acoustid.Lookup(ctx, fp, dur)
+			job.Progress = 0.95
+
+			if err != nil {
+				u.l.Err(err)
+				return
+			}
+
+			name := result.BestString(0.5)
+			job.Progress = 1.0
+			if name == "" {
+				u.l.Err(errors.New("fingerprinting failed: no results"))
+				return
+			}
+
+			u.s.Do(func(s *StateData) error {
+				sec := s.SetConfirm(oview, func() {
+					u.c.RenameSong(song, name)
+				})
+
+				s.Rename = &Rename{
+					Song: song,
+					Name: name,
+					Sec:  sec,
+				}
+				s.SetView(ui.ViewRename, "")
+				return nil
+			})
+			u.Refresh()
+		}()
 
 		return nil
 	})

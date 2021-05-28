@@ -46,6 +46,7 @@ const (
 	ViewHelp
 	ViewJobs
 	ViewExternal
+	ViewRename
 )
 
 type AtomicOutput interface {
@@ -108,6 +109,8 @@ const (
 	CmdScrape
 	CmdJobs
 	CmdCancelJob
+	CmdMeta
+	CmdConfirm
 )
 
 type ArgAmount byte
@@ -145,6 +148,8 @@ var texts = map[CommandType]string{
 	CmdScrape:         "scrape a url and add all songs to the given playlist",
 	CmdJobs:           "list jobs in progress",
 	CmdCancelJob:      "cancel a job",
+	CmdMeta:           "update title using acoustid and musicbrainz",
+	CmdConfirm:        "confirm an operation",
 }
 
 type Args []Arg

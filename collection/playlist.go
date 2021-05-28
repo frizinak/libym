@@ -13,6 +13,7 @@ type Song interface {
 	IDer
 	Title() string
 	UpdateTitle() error
+	SetTitle(string)
 	Local() bool
 	URL() (*url.URL, error)
 	File() (string, error)

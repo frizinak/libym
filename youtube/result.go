@@ -50,6 +50,9 @@ func (r *Result) URL() *url.URL {
 	return u
 }
 
+// SetTitle updates the title.
+func (r *Result) SetTitle(title string) { r.title = title }
+
 // DownloadURL asks youtube-dl to create a (temporary) download / stream url
 // of the clip's contents.
 func (r *Result) DownloadURL() (*url.URL, error) {

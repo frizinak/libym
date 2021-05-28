@@ -472,6 +472,11 @@ func (c *Collection) QueueSong(ix int, s Song) {
 	c.changed()
 }
 
+func (c *Collection) RenameSong(s Song, name string) {
+	s.SetTitle(name)
+	c.changed()
+}
+
 func (c *Collection) FromYoutube(r *youtube.Result) *YoutubeSong {
 	y := &YoutubeSong{Result: r}
 	y.file = c.SongPath(y)

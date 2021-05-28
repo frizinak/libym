@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/frizinak/libym/acoustid"
 	libmpv "github.com/frizinak/libym/backend/mpv/lib"
 	rpcmpv "github.com/frizinak/libym/backend/mpv/rpc"
 	"github.com/frizinak/libym/collection"
@@ -47,6 +48,9 @@ type Config struct {
 	// If nil, a default ratelimiter of 1 item every 5 seconds is used for each.
 	RatelimitDownloads <-chan struct{}
 	RatelimitMeta      <-chan struct{}
+
+	// AcoustID config
+	AcoustID acoustid.Config
 }
 
 // MakeRateLimit creates and starts a ratelimiter that can be used in Config.
@@ -92,6 +96,7 @@ type DI struct {
 	collection       *collection.Collection
 	baseUI           *base.UI
 	commandParser    *ui.CommandParser
+	acoustid         **acoustid.Client
 	rlDownload       <-chan struct{}
 	rlMeta           <-chan struct{}
 }
@@ -136,6 +141,15 @@ func (di *DI) Rates() (<-chan struct{}, <-chan struct{}) {
 	return di.rlDownload, di.rlMeta
 }
 
+func (di *DI) AcoustID() *acoustid.Client {
+	if di.acoustid == nil {
+		client, _ := acoustid.New(di.c.AcoustID)
+		di.acoustid = &client
+	}
+
+	return *di.acoustid
+}
+
 func (di *DI) BaseUI() ui.UI {
 	if di.baseUI == nil {
 		var s *base.SimpleOutput
@@ -173,6 +187,7 @@ func (di *DI) BaseUI() ui.UI {
 			di.Player(),
 			col,
 			di.Queue(),
+			di.AcoustID(),
 		)
 	}
 
@@ -214,6 +229,10 @@ func (di *DI) CommandParser() *ui.CommandParser {
 
 		di.commandParser.Alias(ui.CmdJobs, ui.Zero, nil, "jobs")
 		di.commandParser.Alias(ui.CmdCancelJob, ui.One, nil, "cancel")
+
+		di.commandParser.Alias(ui.CmdConfirm, ui.One, nil, "y", "confirm")
+
+		di.commandParser.Alias(ui.CmdMeta, ui.One, nil, "acoustid")
 
 		di.commandParser.Alias(ui.CmdPlaylistAdd, ui.One, nil, "create-playlist")
 		di.commandParser.Alias(ui.CmdPlaylistDelete, ui.One, nil, "remove-playlist")
