@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -29,6 +30,9 @@ type Config struct {
 
 	// Default to ~/.cache/ym/mpv-ipc.sock if not compiled with libmpv
 	SocketPath string
+
+	// Extra mpv flags when using RPC
+	MPVFlags []string
 
 	// Defaults to os.Stderr
 	BackendLogger io.Writer
@@ -114,14 +118,32 @@ func New(c Config) *DI {
 			Name: "mpv",
 			Build: func(di *DI, log *log.Logger) (Backend, error) {
 				if c.SocketPath == "" {
-					return rpcmpv.New(log, filepath.Join(di.Store(), "mpv-ipc.sock")), nil
+					return rpcmpv.New(log, filepath.Join(di.Store(), "mpv-ipc.sock"), di.MPVFlags()), nil
 				}
-				return rpcmpv.New(log, c.SocketPath), nil
+				return rpcmpv.New(log, c.SocketPath, di.MPVFlags()), nil
 			},
 		},
 	}
 
 	return di
+}
+
+func (di *DI) MPVFlags() []string {
+	if di.c.MPVFlags != nil {
+		return di.c.MPVFlags
+	}
+
+	if runtime.GOOS == "linux" &&
+		len(runtime.GOARCH) > 2 && runtime.GOARCH[:3] == "arm" {
+		// Assume android and apply same 'patch' mpv applies
+		// through a friggin config file that of course doesn't get loaded
+		// when you pass --no-config...
+		di.c.MPVFlags = []string{"--ao=opensles,"}
+		// note trailing comma, mpv will use fallbacks if opensles is not
+		// available.
+	}
+
+	return di.c.MPVFlags
 }
 
 func (di *DI) Rates() (<-chan struct{}, <-chan struct{}) {

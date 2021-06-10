@@ -14,11 +14,12 @@ import (
 	"github.com/frizinak/libym/backend/mpv"
 )
 
-func New(log *log.Logger, ipcPath string) *mpv.MPV {
+func New(log *log.Logger, ipcPath string, flags []string) *mpv.MPV {
 	return mpv.New(
 		log,
 		&RPC{
 			cmd:       "mpv",
+			flags:     flags,
 			ipc:       Pipe(ipcPath),
 			responses: make(chan response, 1024),
 		},
@@ -53,8 +54,9 @@ type response struct {
 type RPC struct {
 	sem sync.Mutex
 
-	cmd string
-	ipc string
+	cmd   string
+	flags []string
+	ipc   string
 
 	command *exec.Cmd
 	conn    Conn
@@ -67,13 +69,15 @@ type RPC struct {
 
 func (m *RPC) Init(events chan<- mpv.Event) error {
 	os.MkdirAll(filepath.Dir(m.ipc), 0755)
-	m.command = exec.Command(
-		m.cmd,
+	f := []string{
 		"--no-video",
 		"--idle",
 		"--no-config",
-		"--input-ipc-server="+m.ipc,
-	)
+		"--input-ipc-server=" + m.ipc,
+	}
+	f = append(f, m.flags...)
+
+	m.command = exec.Command(m.cmd, f...)
 
 	if err := m.command.Start(); err != nil {
 		return err
