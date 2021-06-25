@@ -111,7 +111,7 @@ func (c *Collection) Load() error {
 		}
 
 		for _, s := range l {
-			if err := c.AddSong(playlist, s); err != nil {
+			if err := c.AddSong(playlist, s, false); err != nil {
 				return err
 			}
 		}

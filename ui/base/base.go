@@ -708,7 +708,7 @@ func (u *UI) handleSongAdd(cmd ui.Command) error {
 
 	add := func(songs []collection.Song) error {
 		for _, s := range songs {
-			if err := u.c.AddSong(p, s); err != nil {
+			if err := u.c.AddSong(p, s, true); err != nil {
 				return err
 			}
 		}
@@ -1048,7 +1048,7 @@ func (u *UI) handleScrape(cmd ui.Command) error {
 			job.SetCancel(cancel)
 
 			err := youtube.NewScraper(scr, func(r *youtube.Result) {
-				if err := u.c.AddSong(pl, u.c.FromYoutube(r)); err != nil {
+				if err := u.c.AddSong(pl, u.c.FromYoutube(r), false); err != nil {
 					u.l.Err(fmt.Errorf("%s error: %w", cmd.Cmd(), err))
 				}
 			}).ScrapeWithContext(ctx, uri)

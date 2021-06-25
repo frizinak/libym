@@ -411,12 +411,12 @@ func (c *Collection) PlaylistSongs(playlist string) ([]Song, error) {
 	return p.List(), nil
 }
 
-func (c *Collection) AddSong(playlist string, s Song) error {
+func (c *Collection) AddSong(playlist string, s Song, reappend bool) error {
 	p, err := c.get(playlist)
 	if err != nil {
 		return err
 	}
-	p.Add(s)
+	p.Add(s, reappend)
 	if c.newSong != nil {
 		c.newSong <- s
 	}

@@ -108,12 +108,15 @@ func (p *Playlist) List() []Song {
 	return n
 }
 
-func (p *Playlist) Add(s Song) {
+func (p *Playlist) Add(s Song, reappend bool) {
 	p.sem.Lock()
 	defer p.sem.Unlock()
 	id := GlobalID(s)
 	for i, song := range p.songs {
 		gid := GlobalID(song)
+		if !reappend && gid == id {
+			return
+		}
 		if gid == id {
 			p.songs = append(p.songs[:i], p.songs[i+1:]...)
 			p.songs = append(p.songs, song)
