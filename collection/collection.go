@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -401,6 +402,30 @@ func (c *Collection) Songs() []Song {
 	}
 	c.sem.RUnlock()
 	return n
+}
+
+func (c *Collection) FindAll(ns, id string) (Song, []string, error) {
+	var song Song
+	pls := make([]string, 0)
+	c.sem.RLock()
+	for name, p := range c.playlists {
+		s, err := p.Find(ns, id)
+		if err != nil {
+			continue
+		}
+		pls = append(pls, name)
+		if song == nil {
+			song = s
+		}
+	}
+	c.sem.RUnlock()
+	sort.Strings(pls)
+
+	if song == nil {
+		return nil, pls, ErrSongNotExists
+	}
+
+	return song, pls, nil
 }
 
 func (c *Collection) Find(ns, id string) (Song, error) {

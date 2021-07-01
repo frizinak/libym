@@ -42,7 +42,6 @@ const (
 	CanSearchResult
 	CanSongRemove
 	CanMove
-	CanQueue
 	CanCancelJob
 )
 
@@ -314,6 +313,8 @@ func (u *UI) refresh() error {
 			return u.viewExternal(v, s)
 		case ui.ViewRename:
 			return u.viewRename(v, s)
+		case ui.ViewProblematics:
+			return u.viewProblematics(v, s)
 		}
 
 		return nil
@@ -331,7 +332,7 @@ func (u *UI) viewHelp(view ui.View, s *StateData) error {
 }
 
 func (u *UI) viewSearch(view ui.View, s *StateData) error {
-	s.SetCan(CanSearchResult, CanQueue)
+	s.SetCan(CanSearchResult)
 
 	if s.Query != s.QueryOfResult {
 		result, err := youtube.Search(s.Query)
@@ -357,7 +358,7 @@ func (u *UI) viewSearch(view ui.View, s *StateData) error {
 }
 
 func (u *UI) viewExternal(view ui.View, s *StateData) error {
-	s.SetCan(CanSong, CanQueue)
+	s.SetCan(CanSong)
 	songs := make([]ui.Song, 0, len(s.External))
 	for _, s := range s.External {
 		songs = append(songs, ui.NewUISong(s, "", false))
@@ -410,7 +411,7 @@ func (u *UI) viewJobs(view ui.View, s *StateData) error {
 }
 
 func (u *UI) viewSearchOwn(view ui.View, s *StateData) error {
-	s.SetCan(CanSong, CanQueue)
+	s.SetCan(CanSong)
 
 	if s.QueryOwn != s.QueryOfOwnResult {
 		result := u.c.Search(s.QueryOwn)
@@ -453,7 +454,7 @@ func (u *UI) viewPlaylists(view ui.View, s *StateData) error {
 }
 
 func (u *UI) viewPlaylist(view ui.View, s *StateData) error {
-	s.SetCan(CanSong, CanSongRemove, CanMove, CanQueue)
+	s.SetCan(CanSong, CanSongRemove, CanMove)
 
 	result, err := u.c.PlaylistSongs(s.Playlist)
 	if err != nil {
@@ -489,6 +490,36 @@ func (u *UI) viewQueue(view ui.View, s *StateData) error {
 		a.SetView(view)
 		a.SetTitle(s.Title())
 		a.SetSongs(songs)
+	})
+	return nil
+}
+
+func (u *UI) viewProblematics(view ui.View, s *StateData) error {
+	p := u.c.Problematics()
+	l := p.List()
+	songs := make([]string, len(l))
+	for i, pr := range l {
+		s := pr.Song()
+		_, playlists, _ := u.c.FindAll(s.NS(), s.ID())
+		var pls string
+		if len(playlists) != 0 {
+			pls = fmt.Sprintf("\nplaylist: %s", strings.Join(playlists, " "))
+		}
+
+		songs[i] = fmt.Sprintf(
+			"%s-%s: %s%s\n%s\n\n",
+			s.NS(),
+			s.ID(),
+			s.Title(),
+			pls,
+			pr.Reason().Error(),
+		)
+	}
+
+	u.AtomicFlush(func(a ui.AtomicOutput) {
+		a.SetView(view)
+		a.SetTitle(s.Title())
+		a.SetText(strings.Join(songs, ""))
 	})
 	return nil
 }
@@ -616,6 +647,8 @@ func (u *UI) handle(cmd ui.Command) error {
 		return u.handleMeta(cmd)
 	case ui.CmdConfirm:
 		return u.handleConfirm(cmd)
+	case ui.CmdProblematics:
+		return u.handleProblematics(cmd)
 	default:
 		return fmt.Errorf("%s is not implemented", cmd.Cmd())
 	}
@@ -981,6 +1014,13 @@ func (u *UI) handleMeta(cmd ui.Command) error {
 			u.Refresh()
 		}()
 
+		return nil
+	})
+}
+
+func (u *UI) handleProblematics(cmd ui.Command) error {
+	return u.s.Do(func(s *StateData) error {
+		s.SetView(ui.ViewProblematics, "")
 		return nil
 	})
 }

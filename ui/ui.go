@@ -50,6 +50,7 @@ const (
 	ViewJobs
 	ViewExternal
 	ViewRename
+	ViewProblematics
 )
 
 type AtomicOutput interface {
@@ -114,6 +115,7 @@ const (
 	CmdCancelJob
 	CmdMeta
 	CmdConfirm
+	CmdProblematics
 )
 
 type ArgAmount byte
@@ -153,6 +155,7 @@ var texts = map[CommandType]string{
 	CmdCancelJob:      "cancel a job",
 	CmdMeta:           "update title using acoustid and musicbrainz",
 	CmdConfirm:        "confirm an operation",
+	CmdProblematics:   "view song problems",
 }
 
 type Args []Arg

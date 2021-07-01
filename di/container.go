@@ -295,6 +295,7 @@ func (di *DI) CommandParser() *ui.CommandParser {
 
 		di.commandParser.Alias(ui.CmdViewPlaylist, ui.One, nil, "ls", "playlist")
 		di.commandParser.Alias(ui.CmdViewPlaylists, ui.Zero, nil, "ls", "playlists")
+		di.commandParser.Alias(ui.CmdProblematics, ui.Zero, nil, "problems", "problematics")
 	}
 
 	return di.commandParser
