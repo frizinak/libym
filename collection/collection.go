@@ -343,23 +343,41 @@ func (c *Collection) get(n string) (*Playlist, error) {
 	return p, nil
 }
 
-func (c *Collection) Search(q string) []Song {
+type SearchResult struct {
+	Song
+	Playlists []string
+}
+
+func (c *Collection) Search(q string) []*SearchResult {
+	byS := make(map[string]*SearchResult)
 	a := make([]Song, 0)
+
 	c.sem.RLock()
-	for _, p := range c.playlists {
-		a = append(a, p.Search(q)...)
+	for name, p := range c.playlists {
+		res := p.Search(q)
+		if len(res) == 0 {
+			continue
+		}
+		for _, s := range res {
+			gid := GlobalID(s)
+			if _, ok := byS[gid]; !ok {
+				byS[gid] = &SearchResult{s, make([]string, 0, 1)}
+			}
+			byS[gid].Playlists = append(byS[gid].Playlists, name)
+		}
+
+		a = append(a, res...)
 	}
 	c.sem.RUnlock()
 
 	uniq := make(map[string]struct{}, len(a))
-	list := make([]Song, 0, len(a))
+	list := make([]*SearchResult, 0, len(a))
 	for _, s := range a {
 		gid := GlobalID(s)
 		if _, ok := uniq[gid]; !ok {
 			uniq[gid] = struct{}{}
-			list = append(list, s)
+			list = append(list, byS[gid])
 		}
-
 	}
 
 	return list

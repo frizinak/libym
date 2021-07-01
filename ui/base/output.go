@@ -68,8 +68,12 @@ func (s *SimpleOutput) flush() {
 		f := "%" + strconv.Itoa(len(strconv.Itoa(len(s.songs)))) + "d: %s\n"
 		for i, song := range s.songs {
 			t := song.Title()
+			e := song.Extra()
 			if t == "" {
 				t = "- unknown -"
+			}
+			if e != "" {
+				t += e
 			}
 			fmt.Fprintf(s.w, f, i+1, t)
 		}

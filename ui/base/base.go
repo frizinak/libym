@@ -125,9 +125,10 @@ type StateData struct {
 
 	jobs *Jobs
 
-	Songs    []collection.Song
-	External []collection.Song
-	Search   []*youtube.Result
+	Songs      []collection.Song
+	External   []collection.Song
+	Search     []*youtube.Result
+	LocalSongs []*collection.SearchResult
 
 	Rename *Rename
 
@@ -343,7 +344,7 @@ func (u *UI) viewSearch(view ui.View, s *StateData) error {
 
 	songs := make([]ui.Song, 0, len(s.Search))
 	for _, s := range s.Search {
-		songs = append(songs, ui.NewUISong(u.c.FromYoutube(s), false))
+		songs = append(songs, ui.NewUISong(u.c.FromYoutube(s), "", false))
 	}
 
 	u.AtomicFlush(func(a ui.AtomicOutput) {
@@ -359,7 +360,7 @@ func (u *UI) viewExternal(view ui.View, s *StateData) error {
 	s.SetCan(CanSong, CanQueue)
 	songs := make([]ui.Song, 0, len(s.External))
 	for _, s := range s.External {
-		songs = append(songs, ui.NewUISong(s, false))
+		songs = append(songs, ui.NewUISong(s, "", false))
 	}
 
 	s.Songs = s.External
@@ -413,13 +414,19 @@ func (u *UI) viewSearchOwn(view ui.View, s *StateData) error {
 
 	if s.QueryOwn != s.QueryOfOwnResult {
 		result := u.c.Search(s.QueryOwn)
-		s.Songs = result
+		s.LocalSongs = result
 		s.QueryOfOwnResult = s.QueryOwn
 	}
 
+	s.Songs = make([]collection.Song, len(s.LocalSongs))
+	for i, song := range s.LocalSongs {
+		s.Songs[i] = song
+	}
+
 	songs := make([]ui.Song, 0, len(s.Songs))
-	for _, s := range s.Songs {
-		songs = append(songs, ui.NewUISong(s, false))
+	for i, song := range s.Songs {
+		extra := fmt.Sprintf(" [%s]", strings.Join(s.LocalSongs[i].Playlists, " "))
+		songs = append(songs, ui.NewUISong(song, extra, false))
 	}
 
 	u.AtomicFlush(func(a ui.AtomicOutput) {
@@ -455,7 +462,7 @@ func (u *UI) viewPlaylist(view ui.View, s *StateData) error {
 
 	songs := make([]ui.Song, 0, len(result))
 	for _, s := range result {
-		songs = append(songs, ui.NewUISong(s, false))
+		songs = append(songs, ui.NewUISong(s, "", false))
 	}
 	s.Songs = result
 
@@ -474,7 +481,7 @@ func (u *UI) viewQueue(view ui.View, s *StateData) error {
 	result := u.q.Slice()
 	songs := make([]ui.Song, 0, len(result))
 	for i, s := range result {
-		songs = append(songs, ui.NewUISong(s, ix == i))
+		songs = append(songs, ui.NewUISong(s, "", ix == i))
 	}
 	s.Songs = result
 

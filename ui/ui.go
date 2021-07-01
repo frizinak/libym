@@ -24,16 +24,19 @@ type BaseSong interface {
 
 type Song interface {
 	BaseSong
+	Extra() string
 	Active() bool
 }
 
 type SimpleUISong struct {
 	BaseSong
+	extra  string
 	active bool
 }
 
-func NewUISong(s BaseSong, a bool) Song { return SimpleUISong{s, a} }
-func (s SimpleUISong) Active() bool     { return s.active }
+func NewUISong(s BaseSong, extra string, a bool) Song { return SimpleUISong{s, extra, a} }
+func (s SimpleUISong) Extra() string                  { return s.extra }
+func (s SimpleUISong) Active() bool                   { return s.active }
 
 type View byte
 
