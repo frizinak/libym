@@ -56,7 +56,7 @@ func (r *Result) SetTitle(title string) { r.title = title }
 // DownloadURL asks youtube-dl to create a (temporary) download / stream url
 // of the clip's contents.
 func (r *Result) DownloadURL() (*url.URL, error) {
-	cmd := exec.Command("youtube-dl", "-g", "-f", "bestaudio", r.URL().String())
+	cmd := exec.Command("youtube-dl", "-g", "-f", "bestaudio", "--no-playlist", r.URL().String())
 	buf := bytes.NewBuffer(nil)
 	bufe := bytes.NewBuffer(nil)
 	cmd.Stdout = buf
