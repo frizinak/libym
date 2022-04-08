@@ -34,8 +34,6 @@ func DownloadAudio(w io.Writer, src *url.URL) error {
 		"-i",
 		"-",
 		"-vn",
-		"-af",
-		"silenceremove=1:0:0:1:0:0",
 		"-f",
 		"adts",
 		"-",
