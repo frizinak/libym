@@ -19,6 +19,8 @@ type Backend interface {
 	SetPropertyDouble(string, float64) error
 
 	SetPropertyString(string, string) error
+
+	GetPropertyBool(string) (bool, error)
 	SetPropertyBool(string, bool) error
 
 	Command(...string) error
@@ -30,8 +32,7 @@ type EventID byte
 const (
 	EventEndFile EventID = 1 + iota
 	EventStartFile
-	EventPause
-	EventUnpause
+	EventPropertyChange
 )
 
 // Event represents an mpv event.
@@ -101,12 +102,11 @@ func (m *MPV) Init() error {
 				done := make(chan struct{}, 1)
 				m.state.dones = append(m.state.dones, done)
 				m.state.starts <- done
-			case EventPause:
-				actualPause = true
-				m.state.paused = true
-			case EventUnpause:
-				actualPause = false
-				m.state.paused = false
+			case EventPropertyChange:
+				paused, err := m.b.GetPropertyBool("pause")
+				m.l(err, "pause")
+				actualPause = paused
+				m.state.paused = paused
 			}
 		}
 	}()

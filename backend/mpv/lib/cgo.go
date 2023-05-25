@@ -6,8 +6,8 @@ package lib
 import (
 	"log"
 
-	"github.com/YouROK/go-mpv/mpv"
 	wrap "github.com/frizinak/libym/backend/mpv"
+	"github.com/gen2brain/go-mpv"
 )
 
 func New(log *log.Logger) *wrap.MPV {
@@ -31,11 +31,14 @@ func (m *LibMPV) Init(events chan<- wrap.Event) error {
 		return err
 	}
 
+	if err := m.mpv.ObserveProperty(0, "pause", mpv.FORMAT_FLAG); err != nil {
+		return err
+	}
+
 	ev := map[mpv.EventId]wrap.EventID{
-		mpv.EVENT_END_FILE:   wrap.EventEndFile,
-		mpv.EVENT_START_FILE: wrap.EventStartFile,
-		mpv.EVENT_PAUSE:      wrap.EventPause,
-		mpv.EVENT_UNPAUSE:    wrap.EventUnpause,
+		mpv.EVENT_END_FILE:        wrap.EventEndFile,
+		mpv.EVENT_START_FILE:      wrap.EventStartFile,
+		mpv.EVENT_PROPERTY_CHANGE: wrap.EventPropertyChange,
 	}
 
 	go func() {
@@ -76,6 +79,15 @@ func (m *LibMPV) SetPropertyDouble(n string, v float64) error {
 
 func (m *LibMPV) SetPropertyString(n, v string) error {
 	return m.mpv.SetPropertyString(n, v)
+}
+
+func (m *LibMPV) GetPropertyBool(n string) (bool, error) {
+	v, err := m.mpv.GetProperty(n, mpv.FORMAT_FLAG)
+	if err != nil || v == nil {
+		return false, err
+	}
+
+	return v.(bool), err
 }
 
 func (m *LibMPV) SetPropertyBool(n string, v bool) error {

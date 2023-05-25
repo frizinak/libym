@@ -103,10 +103,9 @@ func (m *RPC) Init(events chan<- mpv.Event) error {
 	d := json.NewDecoder(m.conn)
 
 	ev := map[string]mpv.EventID{
-		"end-file":   mpv.EventEndFile,
-		"start-file": mpv.EventStartFile,
-		"pause":      mpv.EventPause,
-		"unpause":    mpv.EventUnpause,
+		"end-file":        mpv.EventEndFile,
+		"start-file":      mpv.EventStartFile,
+		"property-change": mpv.EventPropertyChange,
 	}
 
 	go func() {
@@ -127,6 +126,14 @@ func (m *RPC) Init(events chan<- mpv.Event) error {
 
 		}
 	}()
+
+	req := m.req()
+	if err := m.send(newCommand(req, "observe_property", 1, "pause")); err != nil {
+		return err
+	}
+	if _, err := m.waitReq(req); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -173,6 +180,20 @@ func (m *RPC) GetProperty(n string) (interface{}, error) {
 	}
 	response, err := m.waitReq(req)
 	return response.Data, err
+}
+
+func (m *RPC) GetPropertyBool(n string) (bool, error) {
+	_v, err := m.GetProperty(n)
+	if err != nil || _v == nil {
+		return false, err
+	}
+
+	switch v := _v.(type) {
+	case bool:
+		return v, nil
+	default:
+		return false, fmt.Errorf("%s is not a bool: %v", n, _v)
+	}
 }
 
 func (m *RPC) GetPropertyDouble(n string) (float64, error) {
