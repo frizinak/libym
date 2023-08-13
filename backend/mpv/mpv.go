@@ -82,8 +82,6 @@ func (m *MPV) Init() error {
 		return err
 	}
 
-	m.l(m.b.SetPropertyBool("cache", true), "cache")
-
 	vol, err := m.b.GetPropertyDouble("volume")
 	m.l(err, "volume")
 	m.state.volume = vol / 100
