@@ -248,7 +248,7 @@ func (s *Scraper) do(uri *url.URL) (*goquery.Document, []*url.URL, error) {
 			next.Path = href
 		case strings.HasPrefix(href, "http://") || strings.HasPrefix(href, "https://"):
 			n, err := url.Parse(href)
-			if err != nil {
+			if err == nil {
 				next = *n
 			}
 		default:
